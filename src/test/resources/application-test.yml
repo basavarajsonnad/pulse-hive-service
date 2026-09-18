@@ -14,12 +14,6 @@ decorator:
   datasource:
     enabled: false
 
-management:
-  datadog:
-    metrics:
-      export:
-        enabled: false
-
 portal26:
   core:
     base-url: http://localhost:8081

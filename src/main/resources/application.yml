@@ -43,7 +43,7 @@ management:
   endpoints:
     web:
       exposure:
-        include: ${ACTUATOR_ENDPOINTS:health,info,metrics,prometheus}
+        include: ${ACTUATOR_ENDPOINTS:health,info,metrics}
   endpoint:
     health:
       show-details: ${ACTUATOR_HEALTH_SHOW_DETAILS:when_authorized}
@@ -62,13 +62,6 @@ management:
       process: true
       system: true
       http: true
-  datadog:
-    metrics:
-      export:
-        enabled: ${DATADOG_METRICS_ENABLED:false}
-        api-key: ${DATADOG_API_KEY:}
-        step: ${DATADOG_METRICS_STEP:30s}
-        uri: ${DATADOG_METRICS_URI:https://api.datadoghq.com}
 
 hive:
   cors:
