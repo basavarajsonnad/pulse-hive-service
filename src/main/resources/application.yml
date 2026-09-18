@@ -1,0 +1,106 @@
+spring:
+  application:
+    name: pulse-hive-service
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    hikari:
+      pool-name: pulse-hive-hikari
+      maximum-pool-size: ${DB_POOL_MAX_SIZE:15}
+      minimum-idle: ${DB_POOL_MIN_IDLE:5}
+      connection-timeout: ${DB_POOL_CONNECTION_TIMEOUT_MS:30000}
+      idle-timeout: ${DB_POOL_IDLE_TIMEOUT_MS:600000}
+      max-lifetime: ${DB_POOL_MAX_LIFETIME_MS:1800000}
+      leak-detection-threshold: ${DB_POOL_LEAK_DETECTION_MS:60000}
+      register-mbeans: true
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        generate_statistics: ${HIBERNATE_GENERATE_STATISTICS:false}
+        session.events.log.LOG_QUERIES_SLOWER_THAN_MS: ${HIBERNATE_SLOW_QUERY_MS:500}
+  liquibase:
+    change-log: classpath:db/changelog/db.changelog-master.yaml
+
+server:
+  port: ${SERVER_PORT:8080}
+
+# N+1 / query counting (prefer enabled in non-prod; keep off or sample in prod)
+decorator:
+  datasource:
+    enabled: ${DATASOURCE_PROXY_ENABLED:false}
+    datasource-proxy:
+      slow-query:
+        enable-logging: ${DATASOURCE_PROXY_SLOW_QUERY_LOG:true}
+        threshold: ${DATASOURCE_PROXY_SLOW_QUERY_MS:300}
+      count-query: ${DATASOURCE_PROXY_COUNT_QUERY:true}
+      multiline: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: ${ACTUATOR_ENDPOINTS:health,info,metrics,prometheus}
+  endpoint:
+    health:
+      show-details: ${ACTUATOR_HEALTH_SHOW_DETAILS:when_authorized}
+      probes:
+        enabled: true
+  health:
+    db:
+      enabled: true
+  metrics:
+    tags:
+      application: ${spring.application.name}
+      env: ${APP_ENV:local}
+    enable:
+      hikaricp: true
+      jvm: true
+      process: true
+      system: true
+      http: true
+  datadog:
+    metrics:
+      export:
+        enabled: ${DATADOG_METRICS_ENABLED:false}
+        api-key: ${DATADOG_API_KEY:}
+        step: ${DATADOG_METRICS_STEP:30s}
+        uri: ${DATADOG_METRICS_URI:https://api.datadoghq.com}
+
+hive:
+  cors:
+    allowed-origins: ${HIVE_CORS_ALLOWED_ORIGINS:http://localhost:3000}
+  security:
+    dev-headers: ${HIVE_SECURITY_DEV_HEADERS:false}
+  workers:
+    provisioning-poll-ms: ${HIVE_PROVISIONING_POLL_MS:5000}
+    reporting-poll-ms: ${HIVE_REPORTING_POLL_MS:10000}
+    sync-poll-ms: ${HIVE_SYNC_POLL_MS:60000}
+
+portal26:
+  core:
+    base-url: ${CORE_BASE_URL:http://localhost:8081}
+    http:
+      connect-timeout-ms: ${CORE_HTTP_CONNECT_TIMEOUT_MS:3000}
+      response-timeout-ms: ${CORE_HTTP_RESPONSE_TIMEOUT_MS:10000}
+      max-connections: ${CORE_HTTP_MAX_CONNECTIONS:100}
+      max-idle-time-ms: ${CORE_HTTP_MAX_IDLE_TIME_MS:30000}
+      pending-acquire-timeout-ms: ${CORE_HTTP_PENDING_ACQUIRE_TIMEOUT_MS:45000}
+      metrics-enabled: ${CORE_HTTP_METRICS_ENABLED:true}
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      portal26Core:
+        slidingWindowSize: ${CORE_CB_SLIDING_WINDOW:20}
+        failureRateThreshold: ${CORE_CB_FAILURE_RATE:50}
+        waitDurationInOpenState: ${CORE_CB_WAIT_OPEN:10s}
+        permittedNumberOfCallsInHalfOpenState: ${CORE_CB_HALF_OPEN:5}
+  retry:
+    instances:
+      portal26Core:
+        maxAttempts: ${CORE_RETRY_MAX_ATTEMPTS:3}
+        waitDuration: ${CORE_RETRY_WAIT:500ms}
