@@ -1,8 +1,12 @@
 HELP.md
+.gradle/
+build/
+!**/src/main/**/build/
+!**/src/test/**/build/
 target/
-.mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
 !**/src/test/**/target/
+.java-version
 
 ### STS ###
 .apt_generated
@@ -25,9 +29,11 @@ target/
 /dist/
 /nbdist/
 /.nb-gradle/
-build/
-!**/src/main/**/build/
-!**/src/test/**/build/
 
 ### VS Code ###
 .vscode/
+
+### Local env / secrets ###
+.env
+.env.local
+.env.*.local
