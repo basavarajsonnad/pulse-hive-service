@@ -9,11 +9,3 @@ spring:
       ddl-auto: none
   liquibase:
     enabled: false
-
-decorator:
-  datasource:
-    enabled: false
-
-portal26:
-  core:
-    base-url: http://localhost:8081

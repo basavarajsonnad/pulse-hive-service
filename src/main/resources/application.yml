@@ -18,26 +18,11 @@ spring:
     hibernate:
       ddl-auto: validate
     open-in-view: false
-    properties:
-      hibernate:
-        generate_statistics: ${HIBERNATE_GENERATE_STATISTICS:false}
-        session.events.log.LOG_QUERIES_SLOWER_THAN_MS: ${HIBERNATE_SLOW_QUERY_MS:500}
   liquibase:
     change-log: classpath:db/changelog/db.changelog-master.yaml
 
 server:
   port: ${SERVER_PORT:8080}
-
-# N+1 / query counting (prefer enabled in non-prod; keep off or sample in prod)
-decorator:
-  datasource:
-    enabled: ${DATASOURCE_PROXY_ENABLED:false}
-    datasource-proxy:
-      slow-query:
-        enable-logging: ${DATASOURCE_PROXY_SLOW_QUERY_LOG:true}
-        threshold: ${DATASOURCE_PROXY_SLOW_QUERY_MS:300}
-      count-query: ${DATASOURCE_PROXY_COUNT_QUERY:true}
-      multiline: true
 
 management:
   endpoints:
@@ -66,34 +51,3 @@ management:
 hive:
   cors:
     allowed-origins: ${HIVE_CORS_ALLOWED_ORIGINS:http://localhost:3000}
-  security:
-    dev-headers: ${HIVE_SECURITY_DEV_HEADERS:false}
-  workers:
-    provisioning-poll-ms: ${HIVE_PROVISIONING_POLL_MS:5000}
-    reporting-poll-ms: ${HIVE_REPORTING_POLL_MS:10000}
-    sync-poll-ms: ${HIVE_SYNC_POLL_MS:60000}
-
-portal26:
-  core:
-    base-url: ${CORE_BASE_URL:http://localhost:8081}
-    http:
-      connect-timeout-ms: ${CORE_HTTP_CONNECT_TIMEOUT_MS:3000}
-      response-timeout-ms: ${CORE_HTTP_RESPONSE_TIMEOUT_MS:10000}
-      max-connections: ${CORE_HTTP_MAX_CONNECTIONS:100}
-      max-idle-time-ms: ${CORE_HTTP_MAX_IDLE_TIME_MS:30000}
-      pending-acquire-timeout-ms: ${CORE_HTTP_PENDING_ACQUIRE_TIMEOUT_MS:45000}
-      metrics-enabled: ${CORE_HTTP_METRICS_ENABLED:true}
-
-resilience4j:
-  circuitbreaker:
-    instances:
-      portal26Core:
-        slidingWindowSize: ${CORE_CB_SLIDING_WINDOW:20}
-        failureRateThreshold: ${CORE_CB_FAILURE_RATE:50}
-        waitDurationInOpenState: ${CORE_CB_WAIT_OPEN:10s}
-        permittedNumberOfCallsInHalfOpenState: ${CORE_CB_HALF_OPEN:5}
-  retry:
-    instances:
-      portal26Core:
-        maxAttempts: ${CORE_RETRY_MAX_ATTEMPTS:3}
-        waitDuration: ${CORE_RETRY_WAIT:500ms}
