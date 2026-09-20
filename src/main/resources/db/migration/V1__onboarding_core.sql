@@ -1,7 +1,15 @@
 -- Customer onboarding under an MSP (minimal cut).
--- Every customer-scoped table carries msp_id so row-level security can be added
--- in a later migration without a schema change. RLS policies are intentionally
--- deferred (they require a non-superuser app role + per-transaction set_config).
+-- Every customer-scoped table carries msp_id and is protected by row-level
+-- security (see the RLS block at the end).
+--
+-- RLS enforcement requires two runtime conditions the schema cannot guarantee:
+--   1. The application connects as a NON-superuser, NON-owner role. Superusers
+--      and BYPASSRLS roles ignore RLS even with FORCE; point DB_USERNAME at a
+--      plain role (e.g. hive_app) with only DML grants.
+--   2. Every transaction sets app.current_msp via
+--      SELECT set_config('app.current_msp', '<uuid>', true);
+--      RLS is default-deny: without it, reads return zero rows and writes fail
+--      the WITH CHECK. Wire this in the request/transaction boundary.
 
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
@@ -80,3 +88,28 @@ CREATE TABLE tenant_signin_config (
     updated_at           timestamptz NOT NULL DEFAULT now(),
     CONSTRAINT uq_tenant_signin_customer UNIQUE (customer_id)
 );
+
+-- ---------- Row-level security ----------
+-- FORCE so the table owner (the migration/runtime role, if they coincide) is
+-- also subject to policies. app.current_msp is read with missing_ok = true so an
+-- unset GUC yields NULL -> policy false -> default deny.
+
+-- msp: a scoped session sees only its own row (predicate on id, not msp_id)
+ALTER TABLE msp ENABLE ROW LEVEL SECURITY;
+ALTER TABLE msp FORCE  ROW LEVEL SECURITY;
+CREATE POLICY p_msp ON msp
+    USING      (id = current_setting('app.current_msp', true)::uuid)
+    WITH CHECK (id = current_setting('app.current_msp', true)::uuid);
+
+-- every customer-scoped table: identical predicate on msp_id
+DO $$
+DECLARE t text;
+BEGIN
+    FOREACH t IN ARRAY ARRAY['provisioning_job', 'customer', 'provisioning_item', 'tenant_signin_config'] LOOP
+        EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY', t);
+        EXECUTE format('ALTER TABLE %I FORCE  ROW LEVEL SECURITY', t);
+        EXECUTE format($f$CREATE POLICY p_%1$s ON %1$I
+            USING      (msp_id = current_setting('app.current_msp', true)::uuid)
+            WITH CHECK (msp_id = current_setting('app.current_msp', true)::uuid)$f$, t);
+    END LOOP;
+END $$;
