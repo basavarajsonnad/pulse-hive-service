@@ -1,6 +1,10 @@
 spring:
   application:
     name: pulse-hive-service
+  # Load local .env (KEY=value) as a property source when present; ignored in
+  # deployed envs where vars come from the environment / Secrets Manager.
+  config:
+    import: optional:file:.env[.properties]
   datasource:
     url: ${DB_URL}
     username: ${DB_USERNAME}
