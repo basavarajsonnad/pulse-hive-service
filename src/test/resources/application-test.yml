@@ -9,3 +9,6 @@ spring:
       ddl-auto: none
   flyway:
     enabled: false
+
+hive:
+  seed-msp-id: 00000000-0000-0000-0000-000000000001

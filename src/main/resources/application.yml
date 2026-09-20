@@ -55,5 +55,6 @@ management:
       http: true
 
 hive:
+  seed-msp-id: ${HIVE_SEED_MSP_ID}
   cors:
     allowed-origins: ${HIVE_CORS_ALLOWED_ORIGINS:http://localhost:3000}
