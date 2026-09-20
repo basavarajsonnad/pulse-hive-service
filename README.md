@@ -1,59 +1,56 @@
 # Pulse Hive Service
 
-Spring Boot service scaffold generated via [Spring Initializr](https://start.spring.io/).
+Modular Spring Boot monolith for Portal26 Hive.
 
 ## Versions
 
 | Component | Version |
 |---|---|
-| Java (JDK) | Eclipse Temurin **25.0.4.1** (LTS) |
+| Java (JDK) | Eclipse Temurin **25** (LTS) |
 | Spring Boot | **4.1.1** |
-| Maven (wrapper) | **3.9.16** |
-| Lombok | **1.18.46** |
+| Gradle (wrapper) | **9.1.0** |
 | Packaging | jar · base package `com.portal26.hive` |
-
-**Dependencies:** Spring Web (webmvc), Spring Data JPA, PostgreSQL Driver, Lombok, Actuator.
 
 ## Prerequisites
 
-- **JDK 25** (Temurin 25 recommended). No system Maven needed — `./mvnw` is bundled.
-- A running **PostgreSQL** instance (see [Configuration](#configuration)).
+- **JDK 25** (Temurin 25 recommended). No system Gradle needed — `./gradlew` is bundled.
+- Docker (for local Postgres), or a running PostgreSQL instance.
 
-> This project targets Java 25 (committed in `.java-version`). Point `JAVA_HOME` at it
-> without changing your machine default:
-> ```bash
-> export JAVA_HOME=$(/usr/libexec/java_home -v 25)   # macOS
-> ```
-
-## Build & run
+## Build
 
 ```bash
-export JAVA_HOME=$(/usr/libexec/java_home -v 25)
-./mvnw clean package          # build
-./mvnw spring-boot:run        # run  → http://localhost:8080
-./mvnw test                   # test
+./gradlew build
 ```
 
-> Spring Data JPA + PostgreSQL are on the classpath, so the app needs a datasource at
-> startup or it fails with *"Failed to configure a DataSource."* Configure one first.
+## Local Postgres (Docker Compose)
+
+```bash
+cp .env.example .env
+docker compose up -d postgres
+```
+
+App on the host uses `DB_URL=jdbc:postgresql://localhost:5435/hive` from `.env`.
+
+## Run the API locally
+
+```bash
+cp .env.example .env
+docker compose up -d postgres
+./gradlew bootRun   # loads `.env` automatically
+```
+
+## Run API + Postgres in Docker
+
+```bash
+docker compose --profile full up --build
+```
 
 ## Configuration
 
-`src/main/resources/application.properties`:
-
-```properties
-spring.application.name=pulse-hive-service
-
-spring.datasource.url=jdbc:postgresql://localhost:5432/pulse_hive
-spring.datasource.username=postgres
-spring.datasource.password=postgres
-
-spring.jpa.hibernate.ddl-auto=update
-```
-
-Keep credentials in env vars or a `application-local.properties` profile — don't commit secrets.
+Single `application.yml` with `${...}` placeholders.
+Values come from environment variables (local `.env`, EKS env, or AWS Secrets Manager).
+Secrets must not be committed.
 
 ## Actuator
 
-Health check: `GET /actuator/health`. Expose more via
-`management.endpoints.web.exposure.include`.
+Health check: `GET /actuator/health`. Other endpoints are controlled by `ACTUATOR_ENDPOINTS`.

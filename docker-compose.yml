@@ -1,0 +1,43 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: pulse-hive-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-hive}
+      POSTGRES_USER: ${POSTGRES_USER:-hive}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+    ports:
+      - "${POSTGRES_PORT:-5435}:5432"
+    volumes:
+      - pulse_hive_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-hive} -d ${POSTGRES_DB:-hive}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: pulse-hive-service
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "${SERVER_PORT:-8080}:8080"
+    env_file:
+      - .env
+    environment:
+      # Inside Compose, reach Postgres by service name (overrides host localhost URL)
+      DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-hive}
+      DB_USERNAME: ${POSTGRES_USER:-hive}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+      SERVER_PORT: 8080
+    profiles:
+      - full
+
+volumes:
+  pulse_hive_pgdata:
