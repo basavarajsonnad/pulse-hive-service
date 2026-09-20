@@ -9,3 +9,25 @@ spring:
       ddl-auto: none
   liquibase:
     enabled: false
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration
+      - org.springframework.boot.data.redis.autoconfigure.RedisAutoConfiguration
+      - org.springframework.boot.data.redis.autoconfigure.RedisRepositoriesAutoConfiguration
+
+hive:
+  cors:
+    allowed-origins: http://localhost:3000
+  cognito:
+    region: ap-south-1
+    user-pool-id: test-pool
+    client-id: test-client
+    client-secret: test-secret
+    issuer-uri: https://cognito-idp.ap-south-1.amazonaws.com/test-pool
+    bootstrap-admin: false
+    bootstrap-email: admin@portal26.ai
+    bootstrap-password: Admin@123
+  session:
+    cookie-name: HIVE_SESSION
+    ttl: 7d
+    cookie-secure: false

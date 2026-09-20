@@ -20,6 +20,10 @@ spring:
     open-in-view: false
   liquibase:
     change-log: classpath:db/changelog/db.changelog-master.yaml
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
 
 server:
   port: ${SERVER_PORT:8080}
@@ -51,3 +55,16 @@ management:
 hive:
   cors:
     allowed-origins: ${HIVE_CORS_ALLOWED_ORIGINS:http://localhost:3000}
+  cognito:
+    region: ${COGNITO_REGION}
+    user-pool-id: ${COGNITO_USER_POOL_ID}
+    client-id: ${COGNITO_CLIENT_ID}
+    client-secret: ${COGNITO_CLIENT_SECRET:}
+    issuer-uri: ${COGNITO_ISSUER_URI}
+    bootstrap-admin: ${COGNITO_BOOTSTRAP_ADMIN:false}
+    bootstrap-email: ${COGNITO_BOOTSTRAP_EMAIL:admin@portal26.ai}
+    bootstrap-password: ${COGNITO_BOOTSTRAP_PASSWORD:Admin@123}
+  session:
+    cookie-name: ${HIVE_SESSION_COOKIE_NAME:HIVE_SESSION}
+    ttl: ${HIVE_SESSION_TTL:7d}
+    cookie-secure: ${HIVE_SESSION_COOKIE_SECURE:false}

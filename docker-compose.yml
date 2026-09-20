@@ -17,6 +17,18 @@ services:
       timeout: 5s
       retries: 10
 
+  redis:
+    image: redis:7-alpine
+    container_name: pulse-hive-redis
+    restart: unless-stopped
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
   app:
     build:
       context: .
@@ -26,15 +38,18 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     ports:
       - "${SERVER_PORT:-8080}:8080"
     env_file:
       - .env
     environment:
-      # Inside Compose, reach Postgres by service name (overrides host localhost URL)
       DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-hive}
       DB_USERNAME: ${POSTGRES_USER:-hive}
       DB_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
       SERVER_PORT: 8080
     profiles:
       - full

@@ -1,0 +1,53 @@
+databaseChangeLog:
+  - changeSet:
+      id: 001-create-staff
+      author: hive
+      changes:
+        - createTable:
+            tableName: staff
+            columns:
+              - column:
+                  name: id
+                  type: uuid
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: email
+                  type: varchar(320)
+                  constraints:
+                    nullable: false
+                    unique: true
+              - column:
+                  name: role
+                  type: varchar(64)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_at
+                  type: timestamptz
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_at
+                  type: timestamptz
+                  constraints:
+                    nullable: false
+        - insert:
+            tableName: staff
+            columns:
+              - column:
+                  name: id
+                  value: "a0000000-0000-4000-8000-000000000001"
+              - column:
+                  name: email
+                  value: admin@portal26.ai
+              - column:
+                  name: role
+                  value: MSP_HIVE_ADMIN
+              - column:
+                  name: created_at
+                  valueComputed: CURRENT_TIMESTAMP
+              - column:
+                  name: updated_at
+                  valueComputed: CURRENT_TIMESTAMP
