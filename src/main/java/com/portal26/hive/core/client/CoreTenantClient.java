@@ -1,5 +1,6 @@
 package com.portal26.hive.core.client;
 
+import com.portal26.hive.core.client.dto.CoreJobStatusResponse;
 import com.portal26.hive.core.client.dto.CoreStartProvisioningResponse;
 import com.portal26.hive.exception.CoreApiException;
 import com.portal26.hive.exception.ErrorCodes;
@@ -36,6 +37,23 @@ public class CoreTenantClient {
 				throw new CoreApiException(ErrorCodes.VALIDATION_FAILED, "Core did not return a job id");
 			}
 			return response.jobId();
+		} catch (RestClientResponseException ex) {
+			throw new CoreApiException(ErrorCodes.VALIDATION_FAILED, coreMessage(ex));
+		} catch (ResourceAccessException ex) {
+			throw new CoreApiException(ErrorCodes.VALIDATION_FAILED, "Unable to reach Core");
+		}
+	}
+
+	public CoreJobStatusResponse getJob(String jobId) {
+		try {
+			CoreJobStatusResponse response = coreRestClient.get()
+					.uri("/v1/tenants/{jobId}", jobId)
+					.retrieve()
+					.body(CoreJobStatusResponse.class);
+			if (response == null) {
+				throw new CoreApiException(ErrorCodes.VALIDATION_FAILED, "Core did not return a job");
+			}
+			return response;
 		} catch (RestClientResponseException ex) {
 			throw new CoreApiException(ErrorCodes.VALIDATION_FAILED, coreMessage(ex));
 		} catch (ResourceAccessException ex) {

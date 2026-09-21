@@ -58,6 +58,10 @@ hive:
   seed-msp-id: ${HIVE_SEED_MSP_ID}
   cors:
     allowed-origins: ${HIVE_CORS_ALLOWED_ORIGINS:http://localhost:3000}
+  provisioning:
+    poll:
+      enabled: ${HIVE_PROVISIONING_POLL_ENABLED:true}
+      cron: ${HIVE_PROVISIONING_POLL_CRON:0/30 * * * * *}
 
 core:
   base-url: ${CORE_BASE_URL}

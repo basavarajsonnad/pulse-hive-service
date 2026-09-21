@@ -65,6 +65,18 @@ public class ProvisioningJob {
 		return status;
 	}
 
+	public int getSuccessCount() {
+		return successCount;
+	}
+
+	public int getFailureCount() {
+		return failureCount;
+	}
+
+	public Instant getFinishedAt() {
+		return finishedAt;
+	}
+
 	public void setStatus(String status) {
 		this.status = status;
 	}
