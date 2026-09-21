@@ -3,20 +3,18 @@ package com.portal26.hive.staff.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.portal26.hive.cognito.CognitoAuthClient;
 import com.portal26.hive.cognito.CognitoAuthResult;
+import com.portal26.hive.config.CognitoProperties;
 import com.portal26.hive.config.SessionProperties;
 import com.portal26.hive.session.HiveSession;
 import com.portal26.hive.session.SessionStore;
-import com.portal26.hive.staff.dto.AuthUserResponse;
-import com.portal26.hive.staff.dto.LoginRequest;
 import com.portal26.hive.staff.entity.Staff;
-import com.portal26.hive.staff.enums.HiveRole;
 import com.portal26.hive.staff.repository.StaffRepository;
-import jakarta.servlet.http.HttpServletResponse;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Optional;
@@ -43,20 +41,40 @@ class AuthServiceTest {
 
 	@BeforeEach
 	void setUp() {
-		RoleResolver roleResolver = new StaffDbRoleResolver();
 		SessionProperties sessionProperties = new SessionProperties("HIVE_SESSION", Duration.ofDays(7), false);
-		authService = new AuthService(cognitoAuthClient, staffRepository, roleResolver, sessionStore, sessionProperties);
+		CognitoProperties cognitoProperties = new CognitoProperties(
+				"ap-south-1",
+				"test-pool",
+				"test-client",
+				"test-secret",
+				"https://cognito-idp.ap-south-1.amazonaws.com/test-pool",
+				"https://test.auth.ap-south-1.amazoncognito.com",
+				"http://localhost:8080/api/v1/auth/callback",
+				"http://localhost:3000",
+				"http://localhost:3000",
+				"http://localhost:3000",
+				false,
+				"admin@portal26.ai",
+				"Admin@123");
+		authService = new AuthService(
+				cognitoAuthClient, staffRepository, sessionStore, sessionProperties, cognitoProperties);
 	}
 
 	@Test
-	void loginCreatesSessionAndSetsCookie() {
+	void beginLoginReturnsAuthorizeUrl() {
+		when(cognitoAuthClient.buildAuthorizeUrl())
+				.thenReturn("https://test.auth.ap-south-1.amazoncognito.com/oauth2/authorize?...");
+		assertThat(authService.beginLogin()).contains("oauth2/authorize");
+	}
+
+	@Test
+	void callbackReusesExistingStaffAndCreatesSession() {
 		UUID staffId = UUID.randomUUID();
 		Staff staff = new Staff();
 		staff.setId(staffId);
 		staff.setEmail("admin@portal26.ai");
-		staff.setRole(HiveRole.MSP_HIVE_ADMIN);
 
-		when(cognitoAuthClient.authenticate("admin@portal26.ai", "Admin@123"))
+		when(cognitoAuthClient.exchangeAuthorizationCode(eq("auth-code"), eq("oauth-state")))
 				.thenReturn(new CognitoAuthResult(
 						"id-token",
 						"access-token",
@@ -66,15 +84,58 @@ class AuthServiceTest {
 		when(staffRepository.findByEmailIgnoreCase("admin@portal26.ai")).thenReturn(Optional.of(staff));
 
 		MockHttpServletResponse response = new MockHttpServletResponse();
-		AuthUserResponse body = authService.login(new LoginRequest("admin@portal26.ai", "Admin@123"), response);
+		String redirect = authService.handleCallback("auth-code", "oauth-state", null, null, response);
 
-		assertThat(body.email()).isEqualTo("admin@portal26.ai");
-		assertThat(body.role()).isEqualTo(HiveRole.MSP_HIVE_ADMIN);
+		assertThat(redirect).isEqualTo("http://localhost:3000");
 		assertThat(response.getHeader("Set-Cookie")).contains("HIVE_SESSION=");
+		verify(staffRepository, never()).save(any());
 
 		ArgumentCaptor<HiveSession> sessionCaptor = ArgumentCaptor.forClass(HiveSession.class);
 		verify(sessionStore).save(any(String.class), sessionCaptor.capture());
 		assertThat(sessionCaptor.getValue().refreshToken()).isEqualTo("refresh-token");
-		assertThat(sessionCaptor.getValue().role()).isEqualTo(HiveRole.MSP_HIVE_ADMIN);
+		assertThat(sessionCaptor.getValue().staffId()).isEqualTo(staffId);
+	}
+
+	@Test
+	void callbackCreatesStaffOnFirstLogin() {
+		when(cognitoAuthClient.exchangeAuthorizationCode(eq("auth-code"), eq("oauth-state")))
+				.thenReturn(new CognitoAuthResult(
+						"id-token",
+						"access-token",
+						"refresh-token",
+						"newuser@portal26.ai",
+						Instant.now().plusSeconds(900)));
+		when(staffRepository.findByEmailIgnoreCase("newuser@portal26.ai")).thenReturn(Optional.empty());
+		when(staffRepository.save(any(Staff.class))).thenAnswer(invocation -> {
+			Staff s = invocation.getArgument(0);
+			if (s.getId() == null) {
+				s.setId(UUID.randomUUID());
+			}
+			return s;
+		});
+
+		MockHttpServletResponse response = new MockHttpServletResponse();
+		String redirect = authService.handleCallback("auth-code", "oauth-state", null, null, response);
+
+		assertThat(redirect).isEqualTo("http://localhost:3000");
+		assertThat(response.getHeader("Set-Cookie")).contains("HIVE_SESSION=");
+
+		ArgumentCaptor<Staff> staffCaptor = ArgumentCaptor.forClass(Staff.class);
+		verify(staffRepository).save(staffCaptor.capture());
+		assertThat(staffCaptor.getValue().getEmail()).isEqualTo("newuser@portal26.ai");
+		assertThat(staffCaptor.getValue().getRole()).isNull();
+	}
+
+	@Test
+	void logoutClearsSessionAndReturnsCognitoLogoutUrl() {
+		when(cognitoAuthClient.buildLogoutUrl())
+				.thenReturn("https://test.auth.ap-south-1.amazoncognito.com/logout?...");
+
+		MockHttpServletResponse response = new MockHttpServletResponse();
+		String redirect = authService.logout("session-1", response);
+
+		verify(sessionStore).delete("session-1");
+		assertThat(redirect).contains("/logout");
+		assertThat(response.getHeader("Set-Cookie")).contains("Max-Age=0");
 	}
 }

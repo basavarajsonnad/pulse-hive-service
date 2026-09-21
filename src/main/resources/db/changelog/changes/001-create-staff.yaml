@@ -22,7 +22,7 @@ databaseChangeLog:
                   name: role
                   type: varchar(64)
                   constraints:
-                    nullable: false
+                    nullable: true
               - column:
                   name: created_at
                   type: timestamptz
@@ -33,21 +33,3 @@ databaseChangeLog:
                   type: timestamptz
                   constraints:
                     nullable: false
-        - insert:
-            tableName: staff
-            columns:
-              - column:
-                  name: id
-                  value: "a0000000-0000-4000-8000-000000000001"
-              - column:
-                  name: email
-                  value: admin@portal26.ai
-              - column:
-                  name: role
-                  value: MSP_HIVE_ADMIN
-              - column:
-                  name: created_at
-                  valueComputed: CURRENT_TIMESTAMP
-              - column:
-                  name: updated_at
-                  valueComputed: CURRENT_TIMESTAMP

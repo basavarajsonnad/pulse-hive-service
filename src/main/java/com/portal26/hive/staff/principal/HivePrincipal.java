@@ -25,6 +25,9 @@ public class HivePrincipal implements UserDetails {
 
 	@Override
 	public Collection<? extends GrantedAuthority> getAuthorities() {
+		if (role == null) {
+			return List.of();
+		}
 		return List.of(new SimpleGrantedAuthority("ROLE_" + role.name()));
 	}
 

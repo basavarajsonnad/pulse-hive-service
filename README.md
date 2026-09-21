@@ -41,15 +41,50 @@ docker compose up -d postgres redis
 ./gradlew bootRun   # loads `.env` automatically
 ```
 
-With `COGNITO_BOOTSTRAP_ADMIN=true`, startup uses the Cognito SDK (`AdminCreateUser` / `AdminSetUserPassword`) to ensure `admin@portal26.ai` exists in the **existing** user pool (no Terraform, no new pool).
+With `COGNITO_BOOTSTRAP_ADMIN=true`, startup uses the Cognito SDK (`AdminCreateUser` / `AdminSetUserPassword`) to ensure a local Cognito user exists in the **existing** user pool (dev only). Access control for who can sign in is owned by **Cognito**; Hive does not maintain a staff allowlist or role checks.
 
-## Staff login
+## Staff login (Cognito Hosted UI)
 
-- `POST /api/v1/auth/login` — body `{ "email", "password" }` → user JSON + `HIVE_SESSION` HttpOnly cookie
-- `GET /api/v1/auth/me` — current user (requires cookie)
-- `POST /api/v1/auth/logout` — clears Redis session + cookie
+Interactive login uses **AWS Cognito Hosted UI** (authorization code + PKCE). Hive does **not** render an email/password form.
 
-Seeded Hive staff: `admin@portal26.ai` / role `MSP_HIVE_ADMIN` (password only in Cognito, default bootstrap `Admin@123`).
+| Step | Endpoint / action |
+|---|---|
+| Start login | `GET /api/v1/auth/login` → **302** to Cognito Hosted UI |
+| Cognito callback | `GET /api/v1/auth/callback?code=&state=` → exchange code, **find-or-create** `staff` by email, set `HIVE_SESSION`, **302** to frontend |
+| Current user | `GET /api/v1/auth/me` (requires cookie) |
+| Logout | `POST /api/v1/auth/logout` → clear Redis session + cookie, **302** to Cognito `/logout` |
+
+Frontend “Sign in” should **navigate** (full page) to `{API}/api/v1/auth/login`, not POST credentials.
+
+On first successful Cognito login, Hive inserts a `staff` row (email only; roles are not validated in Hive). Later logins reuse that row.
+### Cognito app client (AWS / Terraform)
+
+Managed by Hive-Poc Terraform: `portal26-hive-auth-poc/infra/cognito`.
+
+```bash
+cd ~/Hive-Poc/portal26-hive-auth-poc/infra/cognito
+AWS_PROFILE=aws-kunal-rathod terraform apply
+```
+
+Key outputs / `.env` mapping:
+
+| Env var | Source |
+|---|---|
+| `COGNITO_DOMAIN` | `cognito_domain` output |
+| `COGNITO_REDIRECT_URI` | `hive_api_callback_url` (`http://localhost:8080/api/v1/auth/callback`) |
+| `COGNITO_LOGOUT_URI` | `hive_api_logout_url` |
+| `COGNITO_CLIENT_ID` / `SECRET` | backend app client (`portal26-hive-backend`) |
+
+Backend app client: authorization code + PKCE, IdP `COGNITO` (native email/password Hosted UI), callback = Hive API.
+
+### Hosted UI branding (AWS Console — not Hive code)
+
+Keep the existing Portal26 Cognito card (dark header, email/password, Forgot password, Sign in). Customize header in Cognito branding:
+
+- Small centered **portal26** logo
+- Large centered title **Hive** underneath
+
+Apply via Cognito → User pool → App integration → Domain / Managed Login branding (logo upload and/or custom CSS). Preview in AWS before wiring production redirect URLs.
 
 ### Token / session lifetimes
 
@@ -58,6 +93,7 @@ Seeded Hive staff: `admin@portal26.ai` / role `MSP_HIVE_ADMIN` (password only in
 | Cognito access / id token (configure on app client) | 15 minutes |
 | Cognito refresh token (configure on app client) | 7 days |
 | Redis session + cookie | 7 days (`HIVE_SESSION_TTL`) |
+| OAuth `state` + PKCE verifier | 10 minutes (Redis) |
 
 Refresh tokens are stored **only in Redis** (server-side). The browser cookie holds the opaque session id only.
 

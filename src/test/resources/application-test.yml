@@ -24,6 +24,11 @@ hive:
     client-id: test-client
     client-secret: test-secret
     issuer-uri: https://cognito-idp.ap-south-1.amazonaws.com/test-pool
+    domain: https://test.auth.ap-south-1.amazoncognito.com
+    redirect-uri: http://localhost:8080/api/v1/auth/callback
+    frontend-success-url: http://localhost:3000
+    frontend-error-url: http://localhost:3000
+    logout-uri: http://localhost:3000
     bootstrap-admin: false
     bootstrap-email: admin@portal26.ai
     bootstrap-password: Admin@123

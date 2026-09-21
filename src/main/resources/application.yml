@@ -61,6 +61,11 @@ hive:
     client-id: ${COGNITO_CLIENT_ID}
     client-secret: ${COGNITO_CLIENT_SECRET:}
     issuer-uri: ${COGNITO_ISSUER_URI}
+    domain: ${COGNITO_DOMAIN}
+    redirect-uri: ${COGNITO_REDIRECT_URI}
+    frontend-success-url: ${COGNITO_FRONTEND_SUCCESS_URL:http://localhost:3000}
+    frontend-error-url: ${COGNITO_FRONTEND_ERROR_URL:http://localhost:3000}
+    logout-uri: ${COGNITO_LOGOUT_URI:http://localhost:3000}
     bootstrap-admin: ${COGNITO_BOOTSTRAP_ADMIN:false}
     bootstrap-email: ${COGNITO_BOOTSTRAP_EMAIL:admin@portal26.ai}
     bootstrap-password: ${COGNITO_BOOTSTRAP_PASSWORD:Admin@123}
