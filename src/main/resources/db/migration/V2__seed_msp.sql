@@ -6,11 +6,3 @@ VALUES (
     'cinchit-hive',
     'active'
 );
-
-DO $$
-BEGIN
-    IF EXISTS (SELECT FROM pg_roles WHERE rolname = 'hive_app') THEN
-        GRANT USAGE ON SCHEMA public TO hive_app;
-        GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO hive_app;
-    END IF;
-END $$;

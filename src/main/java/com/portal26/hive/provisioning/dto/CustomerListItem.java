@@ -1,4 +1,11 @@
 package com.portal26.hive.provisioning.dto;
 
-public record CustomerListItem(String customerName, String tenantName) {
+import java.time.Instant;
+
+public record CustomerListItem(
+		String customerName,
+		String tenantName,
+		String status,
+		Instant createdAt,
+		Instant updatedAt) {
 }
