@@ -138,7 +138,10 @@ class TenantControllerTest {
 	}
 
 	@Test
-	void createReturnsBadRequestWhenCustomerNameInvalid() throws Exception {
+	void createForwardsCustomerNameAndSsoToServiceWithoutCoreShapeChecks() throws Exception {
+		when(tenantProvisioningService.create(org.mockito.ArgumentMatchers.any(CreateTenantRequest.class)))
+				.thenReturn(new CreateTenantResponse("job_1a2b3c4d", "ab", "basic", "running"));
+
 		mockMvc.perform(post("/api/v1/tenants")
 						.contentType(MediaType.APPLICATION_JSON)
 						.content("""
@@ -148,13 +151,12 @@ class TenantControllerTest {
 								  "sso": {
 								    "metadataUrl": "https://acme.okta.com/app/xyz/sso/saml/metadata",
 								    "providerName": "Acme-Okta",
-								    "emailAttribute": "email",
-								    "groupsAttribute": "groups"
+								    "emailAttribute": "email"
 								  }
 								}
 								"""))
-				.andExpect(status().isBadRequest())
-				.andExpect(jsonPath("$.code").value("VALIDATION_FAILED"));
+				.andExpect(status().isAccepted())
+				.andExpect(jsonPath("$.jobId").value("job_1a2b3c4d"));
 	}
 
 	@Test
@@ -170,25 +172,6 @@ class TenantControllerTest {
 								    "providerName": "Acme-Okta",
 								    "emailAttribute": "email",
 								    "groupsAttribute": "groups"
-								  }
-								}
-								"""))
-				.andExpect(status().isBadRequest())
-				.andExpect(jsonPath("$.code").value("VALIDATION_FAILED"));
-	}
-
-	@Test
-	void createReturnsBadRequestWhenSsoFieldMissing() throws Exception {
-		mockMvc.perform(post("/api/v1/tenants")
-						.contentType(MediaType.APPLICATION_JSON)
-						.content("""
-								{
-								  "customerName": "acme-corp",
-								  "licensePackage": "basic",
-								  "sso": {
-								    "metadataUrl": "https://acme.okta.com/app/xyz/sso/saml/metadata",
-								    "providerName": "Acme-Okta",
-								    "emailAttribute": "email"
 								  }
 								}
 								"""))
