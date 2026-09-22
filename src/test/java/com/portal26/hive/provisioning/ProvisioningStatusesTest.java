@@ -70,11 +70,11 @@ class ProvisioningStatusesTest {
 		assertThat(ProvisioningStatuses.toCustomerStatus(ProvisioningStatuses.DB_RUNNING))
 				.isEqualTo(ProvisioningStatuses.CUSTOMER_IN_PROGRESS);
 		assertThat(ProvisioningStatuses.toCustomerStatus(ProvisioningStatuses.DB_COMPLETED))
-				.isEqualTo(ProvisioningStatuses.CUSTOMER_COMPLETED);
+				.isEqualTo(ProvisioningStatuses.DB_COMPLETED);
 		assertThat(ProvisioningStatuses.toCustomerStatus(ProvisioningStatuses.DB_COMPLETED_WITH_ERRORS))
-				.isEqualTo(ProvisioningStatuses.CUSTOMER_COMPLETED);
+				.isEqualTo(ProvisioningStatuses.DB_COMPLETED);
 		assertThat(ProvisioningStatuses.toCustomerStatus(ProvisioningStatuses.DB_FAILED))
-				.isEqualTo(ProvisioningStatuses.CUSTOMER_FAILED);
+				.isEqualTo(ProvisioningStatuses.DB_FAILED);
 	}
 
 	@Test

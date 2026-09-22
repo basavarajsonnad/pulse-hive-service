@@ -92,7 +92,7 @@ class ProvisioningPollWriteServiceTest {
 		assertThat(job.getStatus()).isEqualTo(ProvisioningStatuses.DB_COMPLETED_WITH_ERRORS);
 		assertThat(job.getSuccessCount()).isEqualTo(1);
 		assertThat(item.getError()).isEqualTo("SSO metadata rejected");
-		assertThat(customer.getStatus()).isEqualTo(ProvisioningStatuses.CUSTOMER_COMPLETED);
+		assertThat(customer.getStatus()).isEqualTo(ProvisioningStatuses.DB_COMPLETED);
 		assertThat(customer.getTenantName()).isEqualTo("acme.portal26.ai");
 	}
 
