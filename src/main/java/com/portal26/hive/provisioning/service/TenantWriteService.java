@@ -50,16 +50,18 @@ public class TenantWriteService {
 	}
 
 	@Transactional
-	public CreateTenantResponse insertRunning(UUID mspId, String coreJobId, String customerName, SsoConfig sso) {
+	public CreateTenantResponse insertRunning(
+			UUID mspId, String coreJobId, String customerName, String licensePackage, SsoConfig sso) {
 		mspRlsSession.apply(mspId);
 		if (customerRepository.existsByMspIdAndName(mspId, customerName)) {
 			throw new DuplicateCustomerException(customerName);
 		}
 		ProvisioningJob job = provisioningJobRepository.save(ProvisioningJob.singleRunning(mspId, coreJobId));
-		Customer customer = customerRepository.save(Customer.forCreate(mspId, customerName));
+		Customer customer = customerRepository.save(Customer.forCreate(mspId, customerName, licensePackage));
 		provisioningItemRepository.save(
 				ProvisioningItem.firstRow(mspId, job.getId(), customer.getId(), customerName));
 		tenantSigninConfigRepository.save(TenantSigninConfig.forSamlCreate(mspId, customer.getId(), sso));
-		return new CreateTenantResponse(job.getCoreJobReference(), customerName, ProvisioningStatuses.DB_RUNNING);
+		return new CreateTenantResponse(
+				job.getCoreJobReference(), customerName, licensePackage, ProvisioningStatuses.DB_RUNNING);
 	}
 }

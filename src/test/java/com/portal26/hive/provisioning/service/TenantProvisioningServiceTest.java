@@ -47,17 +47,17 @@ class TenantProvisioningServiceTest {
 	void createCallsCoreThenInsertsHiveRows() {
 		CreateTenantRequest request = request();
 		CreateTenantResponse expected =
-				new CreateTenantResponse(CORE_JOB_ID, "acme-corp", ProvisioningStatuses.DB_RUNNING);
+				new CreateTenantResponse(CORE_JOB_ID, "acme-corp", "basic", ProvisioningStatuses.DB_RUNNING);
 		when(currentMspResolver.currentMspId()).thenReturn(MSP_ID);
 		when(coreTenantClient.startProvisioning(request)).thenReturn(CORE_JOB_ID);
-		when(tenantWriteService.insertRunning(MSP_ID, CORE_JOB_ID, "acme-corp", request.sso()))
+		when(tenantWriteService.insertRunning(MSP_ID, CORE_JOB_ID, "acme-corp", "basic", request.sso()))
 				.thenReturn(expected);
 
 		CreateTenantResponse response = tenantProvisioningService.create(request);
 
 		verify(tenantWriteService).assertNameAvailable(MSP_ID, "acme-corp");
 		verify(coreTenantClient).startProvisioning(request);
-		verify(tenantWriteService).insertRunning(MSP_ID, CORE_JOB_ID, "acme-corp", request.sso());
+		verify(tenantWriteService).insertRunning(MSP_ID, CORE_JOB_ID, "acme-corp", "basic", request.sso());
 		assertThat(response).isEqualTo(expected);
 	}
 
@@ -73,12 +73,13 @@ class TenantProvisioningServiceTest {
 				.isInstanceOf(DuplicateCustomerException.class);
 		verify(coreTenantClient, never()).startProvisioning(request);
 		verify(tenantWriteService, never())
-				.insertRunning(MSP_ID, CORE_JOB_ID, "acme-corp", request.sso());
+				.insertRunning(MSP_ID, CORE_JOB_ID, "acme-corp", "basic", request.sso());
 	}
 
 	private static CreateTenantRequest request() {
 		return new CreateTenantRequest(
 				"acme-corp",
+				"basic",
 				new SsoConfig(
 						"https://acme.okta.com/app/xyz/sso/saml/metadata",
 						"Acme-Okta",

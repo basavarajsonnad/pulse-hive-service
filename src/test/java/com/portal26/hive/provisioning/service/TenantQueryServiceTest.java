@@ -53,6 +53,7 @@ class TenantQueryServiceTest {
 		Customer acme = new Customer();
 		acme.setName("acme-corp");
 		acme.setTenantName("acme-corp.portal26.ai");
+		acme.setLicensePackage("basic");
 		acme.setStatus("completed");
 		acme.setCreatedAt(createdAt);
 		acme.setUpdatedAt(updatedAt);
@@ -70,6 +71,7 @@ class TenantQueryServiceTest {
 		assertThat(pageableCaptor.getValue().getPageSize()).isEqualTo(20);
 		assertThat(response.customers()).hasSize(1);
 		assertThat(response.customers().get(0).customerName()).isEqualTo("acme-corp");
+		assertThat(response.customers().get(0).licensePackage()).isEqualTo("basic");
 		assertThat(response.page()).isZero();
 		assertThat(response.size()).isEqualTo(20);
 		assertThat(response.totalElements()).isEqualTo(1);

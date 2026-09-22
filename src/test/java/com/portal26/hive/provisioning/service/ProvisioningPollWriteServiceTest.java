@@ -56,7 +56,7 @@ class ProvisioningPollWriteServiceTest {
 	@Test
 	void completeUpdatesJobItemAndCustomer() {
 		ProvisioningJob job = ProvisioningJob.singleRunning(MSP_ID, CORE_JOB_ID);
-		Customer customer = Customer.forCreate(MSP_ID, "acme-corp");
+		Customer customer = Customer.forCreate(MSP_ID, "acme-corp", Customer.LICENSE_PACKAGE_BASIC);
 		ProvisioningItem item = ProvisioningItem.firstRow(MSP_ID, job.getId(), customer.getId(), "acme-corp");
 		when(provisioningJobRepository.findById(job.getId())).thenReturn(Optional.of(job));
 		when(provisioningItemRepository.findByJobId(job.getId())).thenReturn(List.of(item));
@@ -81,7 +81,7 @@ class ProvisioningPollWriteServiceTest {
 	@Test
 	void completedWithErrorsCopiesFailedStepDetail() {
 		ProvisioningJob job = ProvisioningJob.singleRunning(MSP_ID, CORE_JOB_ID);
-		Customer customer = Customer.forCreate(MSP_ID, "acme-corp");
+		Customer customer = Customer.forCreate(MSP_ID, "acme-corp", Customer.LICENSE_PACKAGE_BASIC);
 		ProvisioningItem item = ProvisioningItem.firstRow(MSP_ID, job.getId(), customer.getId(), "acme-corp");
 		when(provisioningJobRepository.findById(job.getId())).thenReturn(Optional.of(job));
 		when(provisioningItemRepository.findByJobId(job.getId())).thenReturn(List.of(item));

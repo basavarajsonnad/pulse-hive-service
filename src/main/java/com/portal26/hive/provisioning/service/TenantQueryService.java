@@ -63,6 +63,7 @@ public class TenantQueryService {
 		return new CustomerListItem(
 				customer.getName(),
 				customer.getTenantName(),
+				customer.getLicensePackage(),
 				customer.getStatus(),
 				customer.getCreatedAt(),
 				customer.getUpdatedAt());

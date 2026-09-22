@@ -48,10 +48,11 @@ class TenantControllerTest {
 								new CustomerListItem(
 										"acme-corp",
 										"acme-corp.portal26.ai",
+										"basic",
 										"completed",
 										createdAt,
 										updatedAt),
-								new CustomerListItem("beta-inc", null, "running", createdAt, updatedAt)),
+								new CustomerListItem("beta-inc", null, "intermediate", "running", createdAt, updatedAt)),
 						0,
 						20,
 						2,
@@ -61,11 +62,13 @@ class TenantControllerTest {
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.customers[0].customerName").value("acme-corp"))
 				.andExpect(jsonPath("$.customers[0].tenantName").value("acme-corp.portal26.ai"))
+				.andExpect(jsonPath("$.customers[0].licensePackage").value("basic"))
 				.andExpect(jsonPath("$.customers[0].status").value("completed"))
 				.andExpect(jsonPath("$.customers[0].createdAt").value("2026-09-21T05:00:00Z"))
 				.andExpect(jsonPath("$.customers[0].updatedAt").value("2026-09-21T05:30:00Z"))
 				.andExpect(jsonPath("$.customers[1].customerName").value("beta-inc"))
 				.andExpect(jsonPath("$.customers[1].tenantName").isEmpty())
+				.andExpect(jsonPath("$.customers[1].licensePackage").value("intermediate"))
 				.andExpect(jsonPath("$.customers[1].status").value("running"))
 				.andExpect(jsonPath("$.page").value(0))
 				.andExpect(jsonPath("$.size").value(20))
@@ -111,13 +114,14 @@ class TenantControllerTest {
 	void createReturnsAcceptedJob() throws Exception {
 		when(tenantProvisioningService.create(org.mockito.ArgumentMatchers.any(CreateTenantRequest.class)))
 				.thenReturn(new CreateTenantResponse(
-						"job_1a2b3c4d", "acme-corp", "running"));
+						"job_1a2b3c4d", "acme-corp", "basic", "running"));
 
 		mockMvc.perform(post("/api/v1/tenants")
 						.contentType(MediaType.APPLICATION_JSON)
 						.content("""
 								{
 								  "customerName": "acme-corp",
+								  "licensePackage": "basic",
 								  "sso": {
 								    "metadataUrl": "https://acme.okta.com/app/xyz/sso/saml/metadata",
 								    "providerName": "Acme-Okta",
@@ -129,6 +133,7 @@ class TenantControllerTest {
 				.andExpect(status().isAccepted())
 				.andExpect(jsonPath("$.jobId").value("job_1a2b3c4d"))
 				.andExpect(jsonPath("$.customerName").value("acme-corp"))
+				.andExpect(jsonPath("$.licensePackage").value("basic"))
 				.andExpect(jsonPath("$.status").value("running"));
 	}
 
@@ -139,6 +144,27 @@ class TenantControllerTest {
 						.content("""
 								{
 								  "customerName": "ab",
+								  "licensePackage": "basic",
+								  "sso": {
+								    "metadataUrl": "https://acme.okta.com/app/xyz/sso/saml/metadata",
+								    "providerName": "Acme-Okta",
+								    "emailAttribute": "email",
+								    "groupsAttribute": "groups"
+								  }
+								}
+								"""))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.code").value("VALIDATION_FAILED"));
+	}
+
+	@Test
+	void createReturnsBadRequestWhenLicensePackageInvalid() throws Exception {
+		mockMvc.perform(post("/api/v1/tenants")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{
+								  "customerName": "acme-corp",
+								  "licensePackage": "premium",
 								  "sso": {
 								    "metadataUrl": "https://acme.okta.com/app/xyz/sso/saml/metadata",
 								    "providerName": "Acme-Okta",
@@ -158,6 +184,7 @@ class TenantControllerTest {
 						.content("""
 								{
 								  "customerName": "acme-corp",
+								  "licensePackage": "basic",
 								  "sso": {
 								    "metadataUrl": "https://acme.okta.com/app/xyz/sso/saml/metadata",
 								    "providerName": "Acme-Okta",
