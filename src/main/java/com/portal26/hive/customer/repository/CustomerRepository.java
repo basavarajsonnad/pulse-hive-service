@@ -12,7 +12,5 @@ public interface CustomerRepository extends JpaRepository<Customer, UUID> {
 
 	Page<Customer> findAllByOrderByNameAsc(Pageable pageable);
 
-	boolean existsByMspIdAndName(UUID mspId, String name);
-
 	boolean existsByMspIdAndTenantName(UUID mspId, String tenantName);
 }

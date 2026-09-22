@@ -51,8 +51,7 @@ CREATE TABLE customer (
     status       text NOT NULL DEFAULT 'in_progress'
                      CHECK (status IN ('in_progress', 'completed', 'failed')),
     created_at   timestamptz NOT NULL DEFAULT now(),
-    updated_at   timestamptz NOT NULL DEFAULT now(),
-    CONSTRAINT uq_customer_name UNIQUE (msp_id, name)
+    updated_at   timestamptz NOT NULL DEFAULT now()
 );
 CREATE UNIQUE INDEX uq_customer_tenant_name
     ON customer (msp_id, tenant_name) WHERE tenant_name IS NOT NULL;

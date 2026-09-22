@@ -27,7 +27,6 @@ public class TenantProvisioningService {
 
 	public CreateTenantResponse create(CreateTenantRequest request) {
 		UUID mspId = currentMspResolver.currentMspId();
-		tenantWriteService.assertNameAvailable(mspId, request.customerName());
 		String coreJobId = coreTenantClient.startProvisioning(request);
 		return tenantWriteService.insertRunning(
 				mspId, coreJobId, request.customerName(), request.licensePackage(), request.sso());

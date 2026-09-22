@@ -1,13 +1,10 @@
 package com.portal26.hive.provisioning.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.portal26.hive.core.client.CoreTenantClient;
-import com.portal26.hive.exception.DuplicateCustomerException;
 import com.portal26.hive.msp.CurrentMspResolver;
 import com.portal26.hive.provisioning.ProvisioningStatuses;
 import com.portal26.hive.provisioning.dto.CreateTenantRequest;
@@ -55,25 +52,9 @@ class TenantProvisioningServiceTest {
 
 		CreateTenantResponse response = tenantProvisioningService.create(request);
 
-		verify(tenantWriteService).assertNameAvailable(MSP_ID, "acme-corp");
 		verify(coreTenantClient).startProvisioning(request);
 		verify(tenantWriteService).insertRunning(MSP_ID, CORE_JOB_ID, "acme-corp", "basic", request.sso());
 		assertThat(response).isEqualTo(expected);
-	}
-
-	@Test
-	void createDoesNotCallCoreWhenCustomerExists() {
-		CreateTenantRequest request = request();
-		when(currentMspResolver.currentMspId()).thenReturn(MSP_ID);
-		org.mockito.Mockito.doThrow(new DuplicateCustomerException("acme-corp"))
-				.when(tenantWriteService)
-				.assertNameAvailable(MSP_ID, "acme-corp");
-
-		assertThatThrownBy(() -> tenantProvisioningService.create(request))
-				.isInstanceOf(DuplicateCustomerException.class);
-		verify(coreTenantClient, never()).startProvisioning(request);
-		verify(tenantWriteService, never())
-				.insertRunning(MSP_ID, CORE_JOB_ID, "acme-corp", "basic", request.sso());
 	}
 
 	private static CreateTenantRequest request() {
