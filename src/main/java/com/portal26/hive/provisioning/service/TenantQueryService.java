@@ -58,17 +58,17 @@ public class TenantQueryService {
 	}
 
 	@Transactional(readOnly = true)
-	public RegistrationOutputResponse getRegistrationOutput(String customerName) {
-		if (customerName == null || customerName.isBlank()) {
-			throw new CoreApiException(ErrorCodes.VALIDATION_FAILED, "customerName is required");
+	public RegistrationOutputResponse getRegistrationOutput(UUID customerId) {
+		if (customerId == null) {
+			throw new CoreApiException(ErrorCodes.VALIDATION_FAILED, "customerId is required");
 		}
 		UUID mspId = currentMspResolver.currentMspId();
 		mspRlsSession.apply(mspId);
-		Customer customer = customerRepository
-				.findFirstByNameOrderByUpdatedAtDesc(customerName.trim())
+		customerRepository
+				.findById(customerId)
 				.orElseThrow(() -> new NotFoundException("customer not found"));
 		String output = tenantSigninConfigRepository
-				.findByCustomerId(customer.getId())
+				.findByCustomerId(customerId)
 				.map(TenantSigninConfig::getRegistrationOutput)
 				.orElse(null);
 		return new RegistrationOutputResponse(output);

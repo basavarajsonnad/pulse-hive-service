@@ -116,13 +116,13 @@ class TenantQueryServiceTest {
 		TenantSigninConfig signin = TenantSigninConfig.forSamlCreate(MSP_ID, customer.getId(), sso());
 		signin.setRegistrationOutput("MANUAL STEP — add these to the Entra app");
 		when(currentMspResolver.currentMspId()).thenReturn(MSP_ID);
-		when(customerRepository.findFirstByNameOrderByUpdatedAtDesc("acme-corp")).thenReturn(Optional.of(customer));
+		when(customerRepository.findById(customer.getId())).thenReturn(Optional.of(customer));
 		when(tenantSigninConfigRepository.findByCustomerId(customer.getId())).thenReturn(Optional.of(signin));
 
-		RegistrationOutputResponse response = tenantQueryService.getRegistrationOutput("acme-corp");
+		RegistrationOutputResponse response = tenantQueryService.getRegistrationOutput(customer.getId());
 
 		verify(mspRlsSession).apply(MSP_ID);
-		verify(customerRepository).findFirstByNameOrderByUpdatedAtDesc("acme-corp");
+		verify(customerRepository).findById(customer.getId());
 		verify(tenantSigninConfigRepository).findByCustomerId(customer.getId());
 		assertThat(response.registrationOutput()).isEqualTo("MANUAL STEP — add these to the Entra app");
 	}
@@ -132,10 +132,10 @@ class TenantQueryServiceTest {
 		Customer customer = Customer.forCreate(MSP_ID, "acme-corp", Customer.LICENSE_PACKAGE_BASIC);
 		TenantSigninConfig signin = TenantSigninConfig.forSamlCreate(MSP_ID, customer.getId(), sso());
 		when(currentMspResolver.currentMspId()).thenReturn(MSP_ID);
-		when(customerRepository.findFirstByNameOrderByUpdatedAtDesc("acme-corp")).thenReturn(Optional.of(customer));
+		when(customerRepository.findById(customer.getId())).thenReturn(Optional.of(customer));
 		when(tenantSigninConfigRepository.findByCustomerId(customer.getId())).thenReturn(Optional.of(signin));
 
-		RegistrationOutputResponse response = tenantQueryService.getRegistrationOutput("acme-corp");
+		RegistrationOutputResponse response = tenantQueryService.getRegistrationOutput(customer.getId());
 
 		assertThat(response.registrationOutput()).isNull();
 	}
@@ -144,40 +144,29 @@ class TenantQueryServiceTest {
 	void getRegistrationOutputReturnsNullWhenSigninRowMissing() {
 		Customer customer = Customer.forCreate(MSP_ID, "acme-corp", Customer.LICENSE_PACKAGE_BASIC);
 		when(currentMspResolver.currentMspId()).thenReturn(MSP_ID);
-		when(customerRepository.findFirstByNameOrderByUpdatedAtDesc("acme-corp")).thenReturn(Optional.of(customer));
+		when(customerRepository.findById(customer.getId())).thenReturn(Optional.of(customer));
 		when(tenantSigninConfigRepository.findByCustomerId(customer.getId())).thenReturn(Optional.empty());
 
-		RegistrationOutputResponse response = tenantQueryService.getRegistrationOutput("acme-corp");
+		RegistrationOutputResponse response = tenantQueryService.getRegistrationOutput(customer.getId());
 
 		assertThat(response.registrationOutput()).isNull();
 	}
 
 	@Test
-	void getRegistrationOutputTrimsCustomerName() {
-		Customer customer = Customer.forCreate(MSP_ID, "acme-corp", Customer.LICENSE_PACKAGE_BASIC);
-		when(currentMspResolver.currentMspId()).thenReturn(MSP_ID);
-		when(customerRepository.findFirstByNameOrderByUpdatedAtDesc("acme-corp")).thenReturn(Optional.of(customer));
-		when(tenantSigninConfigRepository.findByCustomerId(customer.getId())).thenReturn(Optional.empty());
-
-		tenantQueryService.getRegistrationOutput("  acme-corp  ");
-
-		verify(customerRepository).findFirstByNameOrderByUpdatedAtDesc("acme-corp");
-	}
-
-	@Test
-	void getRegistrationOutputRejectsBlankCustomerName() {
-		assertThatThrownBy(() -> tenantQueryService.getRegistrationOutput("  "))
+	void getRegistrationOutputRejectsNullCustomerId() {
+		assertThatThrownBy(() -> tenantQueryService.getRegistrationOutput(null))
 				.isInstanceOf(CoreApiException.class)
-				.hasMessage("customerName is required");
+				.hasMessage("customerId is required");
 		verifyNoInteractions(customerRepository, tenantSigninConfigRepository, mspRlsSession);
 	}
 
 	@Test
 	void getRegistrationOutputThrowsWhenCustomerUnknown() {
+		UUID missingId = UUID.fromString("99999999-9999-9999-9999-999999999999");
 		when(currentMspResolver.currentMspId()).thenReturn(MSP_ID);
-		when(customerRepository.findFirstByNameOrderByUpdatedAtDesc("missing")).thenReturn(Optional.empty());
+		when(customerRepository.findById(missingId)).thenReturn(Optional.empty());
 
-		assertThatThrownBy(() -> tenantQueryService.getRegistrationOutput("missing"))
+		assertThatThrownBy(() -> tenantQueryService.getRegistrationOutput(missingId))
 				.isInstanceOf(NotFoundException.class)
 				.hasMessage("customer not found");
 		verifyNoInteractions(tenantSigninConfigRepository);

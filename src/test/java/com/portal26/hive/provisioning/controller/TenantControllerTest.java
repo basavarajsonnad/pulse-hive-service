@@ -125,10 +125,11 @@ class TenantControllerTest {
 
 	@Test
 	void signinReturnsRegistrationOutput() throws Exception {
-		when(tenantQueryService.getRegistrationOutput("acme-corp"))
+		UUID customerId = UUID.fromString("11111111-1111-1111-1111-111111111111");
+		when(tenantQueryService.getRegistrationOutput(customerId))
 				.thenReturn(new RegistrationOutputResponse("MANUAL STEP — add these to the Entra app"));
 
-		mockMvc.perform(get("/api/v1/tenants/signin").queryParam("customerName", "acme-corp"))
+		mockMvc.perform(get("/api/v1/tenants/{customerId}", customerId))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.registrationOutput").value("MANUAL STEP — add these to the Entra app"))
 				.andExpect(jsonPath("$.customerName").doesNotExist())
@@ -137,31 +138,22 @@ class TenantControllerTest {
 
 	@Test
 	void signinReturnsNullWhenNotYetPolled() throws Exception {
-		when(tenantQueryService.getRegistrationOutput("acme-corp"))
+		UUID customerId = UUID.fromString("11111111-1111-1111-1111-111111111111");
+		when(tenantQueryService.getRegistrationOutput(customerId))
 				.thenReturn(new RegistrationOutputResponse(null));
 
-		mockMvc.perform(get("/api/v1/tenants/signin").queryParam("customerName", "acme-corp"))
+		mockMvc.perform(get("/api/v1/tenants/{customerId}", customerId))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.registrationOutput").isEmpty());
 	}
 
 	@Test
-	void signinReturnsBadRequestWhenCustomerNameBlank() throws Exception {
-		when(tenantQueryService.getRegistrationOutput(""))
-				.thenThrow(new CoreApiException(ErrorCodes.VALIDATION_FAILED, "customerName is required"));
-
-		mockMvc.perform(get("/api/v1/tenants/signin").queryParam("customerName", ""))
-				.andExpect(status().isBadRequest())
-				.andExpect(jsonPath("$.code").value("VALIDATION_FAILED"))
-				.andExpect(jsonPath("$.message").value("customerName is required"));
-	}
-
-	@Test
 	void signinReturnsNotFoundWhenCustomerUnknown() throws Exception {
-		when(tenantQueryService.getRegistrationOutput("missing"))
+		UUID missingId = UUID.fromString("99999999-9999-9999-9999-999999999999");
+		when(tenantQueryService.getRegistrationOutput(missingId))
 				.thenThrow(new NotFoundException("customer not found"));
 
-		mockMvc.perform(get("/api/v1/tenants/signin").queryParam("customerName", "missing"))
+		mockMvc.perform(get("/api/v1/tenants/{customerId}", missingId))
 				.andExpect(status().isNotFound())
 				.andExpect(jsonPath("$.code").value("VALIDATION_FAILED"))
 				.andExpect(jsonPath("$.message").value("customer not found"));

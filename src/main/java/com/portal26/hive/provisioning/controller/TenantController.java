@@ -7,9 +7,11 @@ import com.portal26.hive.provisioning.dto.RegistrationOutputResponse;
 import com.portal26.hive.provisioning.service.TenantProvisioningService;
 import com.portal26.hive.provisioning.service.TenantQueryService;
 import jakarta.validation.Valid;
+import java.util.UUID;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -40,10 +42,10 @@ public class TenantController {
 		return tenantQueryService.listCustomers(page, size);
 	}
 
-	@GetMapping("/signin")
+	@GetMapping("/{customerId}")
 	@ResponseStatus(HttpStatus.OK)
-	public RegistrationOutputResponse signin(@RequestParam(required = false) String customerName) {
-		return tenantQueryService.getRegistrationOutput(customerName);
+	public RegistrationOutputResponse signin(@PathVariable UUID customerId) {
+		return tenantQueryService.getRegistrationOutput(customerId);
 	}
 
 	@PostMapping
