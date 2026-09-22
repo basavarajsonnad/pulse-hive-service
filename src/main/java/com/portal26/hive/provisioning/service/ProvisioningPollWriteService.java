@@ -1,7 +1,9 @@
 package com.portal26.hive.provisioning.service;
 
 import com.portal26.hive.core.client.dto.CoreJobStatusResponse;
+import com.portal26.hive.core.client.dto.CoreJobStepResponse;
 import com.portal26.hive.customer.repository.CustomerRepository;
+import com.portal26.hive.customer.repository.TenantSigninConfigRepository;
 import com.portal26.hive.msp.MspRlsSession;
 import com.portal26.hive.provisioning.ProvisioningStatuses;
 import com.portal26.hive.provisioning.entity.ProvisioningItem;
@@ -26,17 +28,20 @@ public class ProvisioningPollWriteService {
 	private final ProvisioningJobRepository provisioningJobRepository;
 	private final ProvisioningItemRepository provisioningItemRepository;
 	private final CustomerRepository customerRepository;
+	private final TenantSigninConfigRepository tenantSigninConfigRepository;
 
 	@Autowired
 	public ProvisioningPollWriteService(
 			MspRlsSession mspRlsSession,
 			ProvisioningJobRepository provisioningJobRepository,
 			ProvisioningItemRepository provisioningItemRepository,
-			CustomerRepository customerRepository) {
+			CustomerRepository customerRepository,
+			TenantSigninConfigRepository tenantSigninConfigRepository) {
 		this.mspRlsSession = mspRlsSession;
 		this.provisioningJobRepository = provisioningJobRepository;
 		this.provisioningItemRepository = provisioningItemRepository;
 		this.customerRepository = customerRepository;
+		this.tenantSigninConfigRepository = tenantSigninConfigRepository;
 	}
 
 	@Transactional
@@ -75,6 +80,7 @@ public class ProvisioningPollWriteService {
 		Instant now = Instant.now();
 		String error = itemError(hiveStatus, core);
 		String tenantName = core.tenantName();
+		Optional<CoreJobStepResponse> saml = ProvisioningStatuses.succeededSamlRegistration(core);
 		for (ProvisioningItem item : provisioningItemRepository.findByJobId(jobId)) {
 			item.setStatus(hiveStatus);
 			item.setUpdatedAt(now);
@@ -93,7 +99,19 @@ public class ProvisioningPollWriteService {
 				}
 				customerRepository.save(customer);
 			});
+			saml.ifPresent(step -> persistSamlRegistration(item.getCustomerId(), step, now));
 		}
+	}
+
+	private void persistSamlRegistration(UUID customerId, CoreJobStepResponse step, Instant now) {
+		tenantSigninConfigRepository.findByCustomerId(customerId).ifPresent(config -> {
+			config.setRegistrationOutput(step.detail());
+			config.setUpdatedAt(now);
+			if (config.getRegisteredAt() == null) {
+				config.setRegisteredAt(step.endedAt() != null ? step.endedAt() : now);
+			}
+			tenantSigninConfigRepository.save(config);
+		});
 	}
 
 	private static String itemError(String hiveStatus, CoreJobStatusResponse core) {

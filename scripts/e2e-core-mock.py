@@ -102,6 +102,18 @@ class Handler(BaseHTTPRequestHandler):
         }
         if tenant_name:
             payload["tenant_name"] = tenant_name
+            payload["steps"] = [
+                {
+                    "name": "SAML_REGISTRATION",
+                    "status": "succeeded",
+                    "ended_at": "2026-01-15T09:54:50Z",
+                    "detail": (
+                        "MANUAL STEP — add these to the Entra app registration or SSO login will fail: "
+                        f"redirect URI https://{job['customer_name']}-pulse.auth.ap-south-1.amazoncognito.com/saml2/idpresponse ; "
+                        "identifier urn:amazon:cognito:sp:ap-south-1_XXXX"
+                    ),
+                }
+            ]
         self._json(200, payload)
 
     def _auth_ok(self) -> bool:

@@ -36,8 +36,7 @@ public class TenantSigninConfig {
 	private Map<String, Object> providerInput;
 
 	@Column(name = "registration_output")
-	@JdbcTypeCode(SqlTypes.JSON)
-	private Map<String, Object> registrationOutput;
+	private String registrationOutput;
 
 	@Column(nullable = false)
 	private String status;
@@ -94,7 +93,31 @@ public class TenantSigninConfig {
 		return providerInput;
 	}
 
+	public String getRegistrationOutput() {
+		return registrationOutput;
+	}
+
+	public Instant getRegisteredAt() {
+		return registeredAt;
+	}
+
 	public String getStatus() {
 		return status;
+	}
+
+	public Instant getUpdatedAt() {
+		return updatedAt;
+	}
+
+	public void setRegistrationOutput(String registrationOutput) {
+		this.registrationOutput = registrationOutput;
+	}
+
+	public void setRegisteredAt(Instant registeredAt) {
+		this.registeredAt = registeredAt;
+	}
+
+	public void setUpdatedAt(Instant updatedAt) {
+		this.updatedAt = updatedAt;
 	}
 }
