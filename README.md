@@ -9,7 +9,7 @@ Modular Spring Boot monolith for Portal26 Hive.
 | Java (JDK) | Eclipse Temurin **25** (LTS) |
 | Spring Boot | **4.1.1** |
 | Gradle (wrapper) | **9.1.0** |
-| Packaging | jar · base package `com.portal26.hive` |
+| Packaging | jar · base package `ai.portal26.hive` |
 
 ## Prerequisites
 
