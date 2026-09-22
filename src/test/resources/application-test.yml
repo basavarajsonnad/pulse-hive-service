@@ -7,7 +7,7 @@ spring:
   jpa:
     hibernate:
       ddl-auto: none
-  liquibase:
+  flyway:
     enabled: false
   autoconfigure:
     exclude:
