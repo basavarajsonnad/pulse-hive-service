@@ -124,6 +124,10 @@ class TenantQueryServiceTest {
 		verify(mspRlsSession).apply(MSP_ID);
 		verify(customerRepository).findById(customer.getId());
 		verify(tenantSigninConfigRepository).findByCustomerId(customer.getId());
+		assertThat(response.customerId()).isEqualTo(customer.getId());
+		assertThat(response.mspId()).isEqualTo(MSP_ID);
+		assertThat(response.customerName()).isEqualTo("acme-corp");
+		assertThat(response.licensePackage()).isEqualTo(Customer.LICENSE_PACKAGE_BASIC);
 		assertThat(response.registrationOutput()).isEqualTo("MANUAL STEP — add these to the Entra app");
 	}
 
@@ -137,6 +141,8 @@ class TenantQueryServiceTest {
 
 		RegistrationOutputResponse response = tenantQueryService.getRegistrationOutput(customer.getId());
 
+		assertThat(response.customerId()).isEqualTo(customer.getId());
+		assertThat(response.customerName()).isEqualTo("acme-corp");
 		assertThat(response.registrationOutput()).isNull();
 	}
 

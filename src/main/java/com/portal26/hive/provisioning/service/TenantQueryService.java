@@ -64,14 +64,23 @@ public class TenantQueryService {
 		}
 		UUID mspId = currentMspResolver.currentMspId();
 		mspRlsSession.apply(mspId);
-		customerRepository
+		Customer customer = customerRepository
 				.findById(customerId)
 				.orElseThrow(() -> new NotFoundException("customer not found"));
 		String output = tenantSigninConfigRepository
 				.findByCustomerId(customerId)
 				.map(TenantSigninConfig::getRegistrationOutput)
 				.orElse(null);
-		return new RegistrationOutputResponse(output);
+		return new RegistrationOutputResponse(
+				customer.getId(),
+				customer.getMspId(),
+				customer.getName(),
+				customer.getTenantName(),
+				customer.getLicensePackage(),
+				customer.getStatus(),
+				customer.getCreatedAt(),
+				customer.getUpdatedAt(),
+				output);
 	}
 
 	private static void validatePagination(int page, int size) {

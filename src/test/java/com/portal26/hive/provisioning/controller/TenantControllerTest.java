@@ -126,24 +126,56 @@ class TenantControllerTest {
 	@Test
 	void signinReturnsRegistrationOutput() throws Exception {
 		UUID customerId = UUID.fromString("11111111-1111-1111-1111-111111111111");
+		UUID mspId = UUID.fromString("00000000-0000-0000-0000-000000000001");
+		Instant createdAt = Instant.parse("2026-09-21T05:00:00Z");
+		Instant updatedAt = Instant.parse("2026-09-21T05:30:00Z");
 		when(tenantQueryService.getRegistrationOutput(customerId))
-				.thenReturn(new RegistrationOutputResponse("MANUAL STEP — add these to the Entra app"));
+				.thenReturn(new RegistrationOutputResponse(
+						customerId,
+						mspId,
+						"acme-corp",
+						"acme-corp.portal26.ai",
+						"basic",
+						"completed",
+						createdAt,
+						updatedAt,
+						"MANUAL STEP — add these to the Entra app"));
 
 		mockMvc.perform(get("/api/v1/tenants/{customerId}", customerId))
 				.andExpect(status().isOk())
-				.andExpect(jsonPath("$.registrationOutput").value("MANUAL STEP — add these to the Entra app"))
-				.andExpect(jsonPath("$.customerName").doesNotExist())
-				.andExpect(jsonPath("$.registeredAt").doesNotExist());
+				.andExpect(jsonPath("$.customerId").value(customerId.toString()))
+				.andExpect(jsonPath("$.mspId").value(mspId.toString()))
+				.andExpect(jsonPath("$.customerName").value("acme-corp"))
+				.andExpect(jsonPath("$.tenantName").value("acme-corp.portal26.ai"))
+				.andExpect(jsonPath("$.licensePackage").value("basic"))
+				.andExpect(jsonPath("$.status").value("completed"))
+				.andExpect(jsonPath("$.createdAt").value("2026-09-21T05:00:00Z"))
+				.andExpect(jsonPath("$.updatedAt").value("2026-09-21T05:30:00Z"))
+				.andExpect(jsonPath("$.registrationOutput").value("MANUAL STEP — add these to the Entra app"));
 	}
 
 	@Test
 	void signinReturnsNullWhenNotYetPolled() throws Exception {
 		UUID customerId = UUID.fromString("11111111-1111-1111-1111-111111111111");
+		UUID mspId = UUID.fromString("00000000-0000-0000-0000-000000000001");
+		Instant createdAt = Instant.parse("2026-09-21T05:00:00Z");
+		Instant updatedAt = Instant.parse("2026-09-21T05:30:00Z");
 		when(tenantQueryService.getRegistrationOutput(customerId))
-				.thenReturn(new RegistrationOutputResponse(null));
+				.thenReturn(new RegistrationOutputResponse(
+						customerId,
+						mspId,
+						"acme-corp",
+						null,
+						"basic",
+						"in_progress",
+						createdAt,
+						updatedAt,
+						null));
 
 		mockMvc.perform(get("/api/v1/tenants/{customerId}", customerId))
 				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.customerId").value(customerId.toString()))
+				.andExpect(jsonPath("$.customerName").value("acme-corp"))
 				.andExpect(jsonPath("$.registrationOutput").isEmpty());
 	}
 
