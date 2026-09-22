@@ -35,6 +35,8 @@ dependencies {
 	implementation 'org.flywaydb:flyway-database-postgresql'
 	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:3.1.1'
 	implementation 'software.amazon.awssdk:cognitoidentityprovider:2.31.78'
+	implementation 'software.amazon.awssdk:secretsmanager:2.31.78'
+	implementation 'org.json:json:20240303'
 
 	compileOnly 'org.projectlombok:lombok'
 	annotationProcessor 'org.projectlombok:lombok'
@@ -55,8 +57,10 @@ tasks.named('test') {
 	useJUnitPlatform()
 }
 
-// Spring Boot does not read `.env` by itself — load it for local `./gradlew bootRun`
+// Spring Boot does not read `.env` by itself — load it for local `./gradlew bootRun`.
+// Default to the local profile so bootRun skips AWS Secrets Manager unless .env overrides it.
 tasks.named('bootRun') {
+	environment 'SPRING_PROFILES_ACTIVE', 'local'
 	doFirst {
 		def envFile = file('.env')
 		if (!envFile.exists()) {
