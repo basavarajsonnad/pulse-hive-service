@@ -1,11 +1,14 @@
 package com.portal26.hive.provisioning.service;
 
 import com.portal26.hive.customer.entity.Customer;
+import com.portal26.hive.customer.entity.TenantSigninConfig;
 import com.portal26.hive.customer.repository.CustomerRepository;
+import com.portal26.hive.customer.repository.TenantSigninConfigRepository;
 import com.portal26.hive.exception.DuplicateCustomerException;
 import com.portal26.hive.msp.MspRlsSession;
 import com.portal26.hive.provisioning.ProvisioningStatuses;
 import com.portal26.hive.provisioning.dto.CreateTenantResponse;
+import com.portal26.hive.provisioning.dto.SsoConfig;
 import com.portal26.hive.provisioning.entity.ProvisioningItem;
 import com.portal26.hive.provisioning.entity.ProvisioningJob;
 import com.portal26.hive.provisioning.repository.ProvisioningItemRepository;
@@ -22,17 +25,20 @@ public class TenantWriteService {
 	private final CustomerRepository customerRepository;
 	private final ProvisioningJobRepository provisioningJobRepository;
 	private final ProvisioningItemRepository provisioningItemRepository;
+	private final TenantSigninConfigRepository tenantSigninConfigRepository;
 
 	@Autowired
 	public TenantWriteService(
 			MspRlsSession mspRlsSession,
 			CustomerRepository customerRepository,
 			ProvisioningJobRepository provisioningJobRepository,
-			ProvisioningItemRepository provisioningItemRepository) {
+			ProvisioningItemRepository provisioningItemRepository,
+			TenantSigninConfigRepository tenantSigninConfigRepository) {
 		this.mspRlsSession = mspRlsSession;
 		this.customerRepository = customerRepository;
 		this.provisioningJobRepository = provisioningJobRepository;
 		this.provisioningItemRepository = provisioningItemRepository;
+		this.tenantSigninConfigRepository = tenantSigninConfigRepository;
 	}
 
 	@Transactional(readOnly = true)
@@ -44,7 +50,7 @@ public class TenantWriteService {
 	}
 
 	@Transactional
-	public CreateTenantResponse insertRunning(UUID mspId, String coreJobId, String customerName) {
+	public CreateTenantResponse insertRunning(UUID mspId, String coreJobId, String customerName, SsoConfig sso) {
 		mspRlsSession.apply(mspId);
 		if (customerRepository.existsByMspIdAndName(mspId, customerName)) {
 			throw new DuplicateCustomerException(customerName);
@@ -53,6 +59,7 @@ public class TenantWriteService {
 		Customer customer = customerRepository.save(Customer.forCreate(mspId, customerName));
 		provisioningItemRepository.save(
 				ProvisioningItem.firstRow(mspId, job.getId(), customer.getId(), customerName));
-		return new CreateTenantResponse(job.getId(), customerName, ProvisioningStatuses.DB_RUNNING);
+		tenantSigninConfigRepository.save(TenantSigninConfig.forSamlCreate(mspId, customer.getId(), sso));
+		return new CreateTenantResponse(job.getCoreJobReference(), customerName, ProvisioningStatuses.DB_RUNNING);
 	}
 }

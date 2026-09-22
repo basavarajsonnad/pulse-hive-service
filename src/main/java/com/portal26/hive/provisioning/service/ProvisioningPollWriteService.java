@@ -40,7 +40,7 @@ public class ProvisioningPollWriteService {
 	}
 
 	@Transactional
-	public void applyCoreStatus(UUID mspId, String jobId, CoreJobStatusResponse core) {
+	public void applyCoreStatus(UUID mspId, UUID jobId, CoreJobStatusResponse core) {
 		mspRlsSession.apply(mspId);
 		Optional<String> mapped = ProvisioningStatuses.resolveHiveStatus(core);
 		if (mapped.isEmpty()) {

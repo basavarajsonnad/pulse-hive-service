@@ -13,10 +13,13 @@ import java.util.UUID;
 public class ProvisioningJob {
 
 	@Id
-	private String id;
+	private UUID id;
 
 	@Column(name = "msp_id", nullable = false)
 	private UUID mspId;
+
+	@Column(name = "core_job_reference", nullable = false)
+	private String coreJobReference;
 
 	@Column(nullable = false)
 	private String type;
@@ -45,8 +48,9 @@ public class ProvisioningJob {
 	public static ProvisioningJob singleRunning(UUID mspId, String coreJobId) {
 		Instant now = Instant.now();
 		ProvisioningJob job = new ProvisioningJob();
-		job.id = coreJobId;
+		job.id = UUID.randomUUID();
 		job.mspId = mspId;
+		job.coreJobReference = coreJobId;
 		job.type = ProvisioningStatuses.JOB_TYPE_SINGLE;
 		job.status = ProvisioningStatuses.DB_RUNNING;
 		job.totalCount = 1;
@@ -57,8 +61,12 @@ public class ProvisioningJob {
 		return job;
 	}
 
-	public String getId() {
+	public UUID getId() {
 		return id;
+	}
+
+	public String getCoreJobReference() {
+		return coreJobReference;
 	}
 
 	public String getStatus() {

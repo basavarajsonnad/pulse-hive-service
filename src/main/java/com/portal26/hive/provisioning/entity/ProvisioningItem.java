@@ -19,7 +19,7 @@ public class ProvisioningItem {
 	private UUID mspId;
 
 	@Column(name = "job_id", nullable = false)
-	private String jobId;
+	private UUID jobId;
 
 	@Column(name = "row_number")
 	private Integer rowNumber;
@@ -42,7 +42,7 @@ public class ProvisioningItem {
 	@Column(name = "updated_at", nullable = false)
 	private Instant updatedAt;
 
-	public static ProvisioningItem firstRow(UUID mspId, String jobId, UUID customerId, String customerName) {
+	public static ProvisioningItem firstRow(UUID mspId, UUID jobId, UUID customerId, String customerName) {
 		Instant now = Instant.now();
 		ProvisioningItem item = new ProvisioningItem();
 		item.id = UUID.randomUUID();

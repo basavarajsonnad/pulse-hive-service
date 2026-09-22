@@ -28,7 +28,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 class ProvisioningPollWriteServiceTest {
 
 	private static final UUID MSP_ID = UUID.fromString("00000000-0000-0000-0000-000000000001");
-	private static final String JOB_ID = "job_1a2b3c4d";
+	private static final String CORE_JOB_ID = "job_1a2b3c4d";
 
 	@Mock
 	private MspRlsSession mspRlsSession;
@@ -55,14 +55,14 @@ class ProvisioningPollWriteServiceTest {
 
 	@Test
 	void completeUpdatesJobItemAndCustomer() {
-		ProvisioningJob job = ProvisioningJob.singleRunning(MSP_ID, JOB_ID);
+		ProvisioningJob job = ProvisioningJob.singleRunning(MSP_ID, CORE_JOB_ID);
 		Customer customer = Customer.forCreate(MSP_ID, "acme-corp");
-		ProvisioningItem item = ProvisioningItem.firstRow(MSP_ID, JOB_ID, customer.getId(), "acme-corp");
-		when(provisioningJobRepository.findById(JOB_ID)).thenReturn(Optional.of(job));
-		when(provisioningItemRepository.findByJobId(JOB_ID)).thenReturn(List.of(item));
+		ProvisioningItem item = ProvisioningItem.firstRow(MSP_ID, job.getId(), customer.getId(), "acme-corp");
+		when(provisioningJobRepository.findById(job.getId())).thenReturn(Optional.of(job));
+		when(provisioningItemRepository.findByJobId(job.getId())).thenReturn(List.of(item));
 		when(customerRepository.findById(customer.getId())).thenReturn(Optional.of(customer));
 
-		writeService.applyCoreStatus(MSP_ID, JOB_ID, completeJob());
+		writeService.applyCoreStatus(MSP_ID, job.getId(), completeJob());
 
 		verify(mspRlsSession).apply(MSP_ID);
 		verify(provisioningJobRepository).save(job);
@@ -80,14 +80,14 @@ class ProvisioningPollWriteServiceTest {
 
 	@Test
 	void completedWithErrorsCopiesFailedStepDetail() {
-		ProvisioningJob job = ProvisioningJob.singleRunning(MSP_ID, JOB_ID);
+		ProvisioningJob job = ProvisioningJob.singleRunning(MSP_ID, CORE_JOB_ID);
 		Customer customer = Customer.forCreate(MSP_ID, "acme-corp");
-		ProvisioningItem item = ProvisioningItem.firstRow(MSP_ID, JOB_ID, customer.getId(), "acme-corp");
-		when(provisioningJobRepository.findById(JOB_ID)).thenReturn(Optional.of(job));
-		when(provisioningItemRepository.findByJobId(JOB_ID)).thenReturn(List.of(item));
+		ProvisioningItem item = ProvisioningItem.firstRow(MSP_ID, job.getId(), customer.getId(), "acme-corp");
+		when(provisioningJobRepository.findById(job.getId())).thenReturn(Optional.of(job));
+		when(provisioningItemRepository.findByJobId(job.getId())).thenReturn(List.of(item));
 		when(customerRepository.findById(customer.getId())).thenReturn(Optional.of(customer));
 
-		writeService.applyCoreStatus(MSP_ID, JOB_ID, completedWithErrorsJob());
+		writeService.applyCoreStatus(MSP_ID, job.getId(), completedWithErrorsJob());
 
 		assertThat(job.getStatus()).isEqualTo(ProvisioningStatuses.DB_COMPLETED_WITH_ERRORS);
 		assertThat(job.getSuccessCount()).isEqualTo(1);
@@ -98,27 +98,28 @@ class ProvisioningPollWriteServiceTest {
 
 	@Test
 	void skipsWhenJobIsNotRunning() {
-		ProvisioningJob job = ProvisioningJob.singleRunning(MSP_ID, JOB_ID);
+		ProvisioningJob job = ProvisioningJob.singleRunning(MSP_ID, CORE_JOB_ID);
 		job.setStatus(ProvisioningStatuses.DB_COMPLETED);
-		when(provisioningJobRepository.findById(JOB_ID)).thenReturn(Optional.of(job));
+		when(provisioningJobRepository.findById(job.getId())).thenReturn(Optional.of(job));
 
-		writeService.applyCoreStatus(MSP_ID, JOB_ID, completeJob());
+		writeService.applyCoreStatus(MSP_ID, job.getId(), completeJob());
 
 		verify(provisioningJobRepository, never()).save(job);
-		verify(provisioningItemRepository, never()).findByJobId(JOB_ID);
+		verify(provisioningItemRepository, never()).findByJobId(job.getId());
 	}
 
 	@Test
 	void skipsUnknownCoreStatus() {
-		writeService.applyCoreStatus(MSP_ID, JOB_ID, unknownJob());
+		UUID hiveJobId = UUID.fromString("00000000-0000-0000-0000-000000000099");
+		writeService.applyCoreStatus(MSP_ID, hiveJobId, unknownJob());
 
 		verify(mspRlsSession).apply(MSP_ID);
-		verify(provisioningJobRepository, never()).findById(JOB_ID);
+		verify(provisioningJobRepository, never()).findById(hiveJobId);
 	}
 
 	private static CoreJobStatusResponse completeJob() {
 		return new CoreJobStatusResponse(
-				JOB_ID,
+				CORE_JOB_ID,
 				"acme-corp",
 				"acme.portal26.ai",
 				ProvisioningStatuses.CORE_COMPLETE,
@@ -135,7 +136,7 @@ class ProvisioningPollWriteServiceTest {
 
 	private static CoreJobStatusResponse completedWithErrorsJob() {
 		return new CoreJobStatusResponse(
-				JOB_ID,
+				CORE_JOB_ID,
 				"acme-corp",
 				"acme.portal26.ai",
 				ProvisioningStatuses.CORE_FAILED,
@@ -154,7 +155,7 @@ class ProvisioningPollWriteServiceTest {
 	}
 
 	private static CoreJobStatusResponse unknownJob() {
-		return new CoreJobStatusResponse(JOB_ID, "acme-corp", null, "queued", List.of());
+		return new CoreJobStatusResponse(CORE_JOB_ID, "acme-corp", null, "queued", List.of());
 	}
 
 	private static CoreJobStepResponse step(String name, String status) {

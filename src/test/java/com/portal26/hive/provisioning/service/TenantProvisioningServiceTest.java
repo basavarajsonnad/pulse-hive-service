@@ -50,14 +50,14 @@ class TenantProvisioningServiceTest {
 				new CreateTenantResponse(CORE_JOB_ID, "acme-corp", ProvisioningStatuses.DB_RUNNING);
 		when(currentMspResolver.currentMspId()).thenReturn(MSP_ID);
 		when(coreTenantClient.startProvisioning(request)).thenReturn(CORE_JOB_ID);
-		when(tenantWriteService.insertRunning(MSP_ID, CORE_JOB_ID, "acme-corp"))
+		when(tenantWriteService.insertRunning(MSP_ID, CORE_JOB_ID, "acme-corp", request.sso()))
 				.thenReturn(expected);
 
 		CreateTenantResponse response = tenantProvisioningService.create(request);
 
 		verify(tenantWriteService).assertNameAvailable(MSP_ID, "acme-corp");
 		verify(coreTenantClient).startProvisioning(request);
-		verify(tenantWriteService).insertRunning(MSP_ID, CORE_JOB_ID, "acme-corp");
+		verify(tenantWriteService).insertRunning(MSP_ID, CORE_JOB_ID, "acme-corp", request.sso());
 		assertThat(response).isEqualTo(expected);
 	}
 
@@ -72,7 +72,8 @@ class TenantProvisioningServiceTest {
 		assertThatThrownBy(() -> tenantProvisioningService.create(request))
 				.isInstanceOf(DuplicateCustomerException.class);
 		verify(coreTenantClient, never()).startProvisioning(request);
-		verify(tenantWriteService, never()).insertRunning(MSP_ID, CORE_JOB_ID, "acme-corp");
+		verify(tenantWriteService, never())
+				.insertRunning(MSP_ID, CORE_JOB_ID, "acme-corp", request.sso());
 	}
 
 	private static CreateTenantRequest request() {

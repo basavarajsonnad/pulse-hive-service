@@ -82,8 +82,8 @@ class ProvisioningPollServiceTest {
 		verify(mspRlsSession).apply(MSP_ID);
 		verify(coreTenantClient).getJob(JOB_ONE);
 		verify(coreTenantClient).getJob(JOB_TWO);
-		verify(pollWriteService).applyCoreStatus(MSP_ID, JOB_ONE, firstCore);
-		verify(pollWriteService).applyCoreStatus(MSP_ID, JOB_TWO, secondCore);
+		verify(pollWriteService).applyCoreStatus(MSP_ID, first.getId(), firstCore);
+		verify(pollWriteService).applyCoreStatus(MSP_ID, second.getId(), secondCore);
 	}
 
 	@Test

@@ -52,10 +52,14 @@ public class ProvisioningPollService {
 		List<ProvisioningJob> jobs = runningJobs(mspId);
 		for (ProvisioningJob job : jobs) {
 			try {
-				CoreJobStatusResponse core = coreTenantClient.getJob(job.getId());
+				CoreJobStatusResponse core = coreTenantClient.getJob(job.getCoreJobReference());
 				pollWriteService.applyCoreStatus(mspId, job.getId(), core);
 			} catch (CoreApiException ex) {
-				log.warn("Skipping poll for job {}: {}", job.getId(), ex.getMessage());
+				log.warn(
+						"Skipping poll for job {} (core {}): {}",
+						job.getId(),
+						job.getCoreJobReference(),
+						ex.getMessage());
 			}
 		}
 	}

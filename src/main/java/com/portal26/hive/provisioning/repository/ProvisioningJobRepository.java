@@ -7,7 +7,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
 @Repository
-public interface ProvisioningJobRepository extends JpaRepository<ProvisioningJob, String> {
+public interface ProvisioningJobRepository extends JpaRepository<ProvisioningJob, UUID> {
 
 	List<ProvisioningJob> findByMspIdAndStatus(UUID mspId, String status);
 }

@@ -9,5 +9,5 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface ProvisioningItemRepository extends JpaRepository<ProvisioningItem, UUID> {
 
-	List<ProvisioningItem> findByJobId(String jobId);
+	List<ProvisioningItem> findByJobId(UUID jobId);
 }
