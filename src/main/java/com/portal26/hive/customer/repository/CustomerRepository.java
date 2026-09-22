@@ -11,6 +11,4 @@ import org.springframework.stereotype.Repository;
 public interface CustomerRepository extends JpaRepository<Customer, UUID> {
 
 	Page<Customer> findAllByOrderByNameAsc(Pageable pageable);
-
-	boolean existsByMspIdAndTenantName(UUID mspId, String tenantName);
 }
