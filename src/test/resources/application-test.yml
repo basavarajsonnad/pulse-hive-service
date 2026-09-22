@@ -16,6 +16,7 @@ spring:
       - org.springframework.boot.data.redis.autoconfigure.RedisRepositoriesAutoConfiguration
 
 hive:
+  seed-msp-id: 00000000-0000-0000-0000-000000000001
   cors:
     allowed-origins: http://localhost:3000
   cognito:
@@ -36,3 +37,12 @@ hive:
     cookie-name: HIVE_SESSION
     ttl: 7d
     cookie-secure: false
+  provisioning:
+    poll:
+      enabled: false
+
+core:
+  base-url: http://localhost:8081
+  internal-client-id: test
+  connect-timeout-ms: 100
+  read-timeout-ms: 100

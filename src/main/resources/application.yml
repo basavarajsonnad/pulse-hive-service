@@ -55,6 +55,7 @@ management:
       http: true
 
 hive:
+  seed-msp-id: ${HIVE_SEED_MSP_ID}
   cors:
     allowed-origins: ${HIVE_CORS_ALLOWED_ORIGINS:http://localhost:3000}
   cognito:
@@ -75,3 +76,13 @@ hive:
     cookie-name: ${HIVE_SESSION_COOKIE_NAME:HIVE_SESSION}
     ttl: ${HIVE_SESSION_TTL:7d}
     cookie-secure: ${HIVE_SESSION_COOKIE_SECURE:false}
+  provisioning:
+    poll:
+      enabled: ${HIVE_PROVISIONING_POLL_ENABLED:true}
+      cron: ${HIVE_PROVISIONING_POLL_CRON:0/30 * * * * *}
+
+core:
+  base-url: ${CORE_BASE_URL}
+  internal-client-id: ${CORE_INTERNAL_CLIENT_ID:}
+  connect-timeout-ms: ${CORE_CONNECT_TIMEOUT_MS:3000}
+  read-timeout-ms: ${CORE_READ_TIMEOUT_MS:10000}
