@@ -3,6 +3,7 @@ package com.portal26.hive.provisioning.controller;
 import com.portal26.hive.provisioning.dto.CreateTenantRequest;
 import com.portal26.hive.provisioning.dto.CreateTenantResponse;
 import com.portal26.hive.provisioning.dto.CustomerListResponse;
+import com.portal26.hive.provisioning.dto.RegistrationOutputResponse;
 import com.portal26.hive.provisioning.service.TenantProvisioningService;
 import com.portal26.hive.provisioning.service.TenantQueryService;
 import jakarta.validation.Valid;
@@ -37,6 +38,12 @@ public class TenantController {
 			@RequestParam(defaultValue = "0") int page,
 			@RequestParam(defaultValue = "20") int size) {
 		return tenantQueryService.listCustomers(page, size);
+	}
+
+	@GetMapping("/signin")
+	@ResponseStatus(HttpStatus.OK)
+	public RegistrationOutputResponse signin(@RequestParam(required = false) String customerName) {
+		return tenantQueryService.getRegistrationOutput(customerName);
 	}
 
 	@PostMapping

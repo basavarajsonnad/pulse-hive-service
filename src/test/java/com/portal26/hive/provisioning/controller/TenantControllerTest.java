@@ -9,10 +9,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.portal26.hive.exception.CoreApiException;
 import com.portal26.hive.exception.ErrorCodes;
 import com.portal26.hive.exception.GlobalExceptionHandler;
+import com.portal26.hive.exception.NotFoundException;
 import com.portal26.hive.provisioning.dto.CreateTenantRequest;
 import com.portal26.hive.provisioning.dto.CreateTenantResponse;
 import com.portal26.hive.provisioning.dto.CustomerListItem;
 import com.portal26.hive.provisioning.dto.CustomerListResponse;
+import com.portal26.hive.provisioning.dto.RegistrationOutputResponse;
 import com.portal26.hive.provisioning.service.TenantProvisioningService;
 import com.portal26.hive.provisioning.service.TenantQueryService;
 import java.time.Instant;
@@ -108,6 +110,50 @@ class TenantControllerTest {
 				.andExpect(status().isBadRequest())
 				.andExpect(jsonPath("$.code").value("VALIDATION_FAILED"))
 				.andExpect(jsonPath("$.message").value("size must be between 1 and 100"));
+	}
+
+	@Test
+	void signinReturnsRegistrationOutput() throws Exception {
+		when(tenantQueryService.getRegistrationOutput("acme-corp"))
+				.thenReturn(new RegistrationOutputResponse("MANUAL STEP — add these to the Entra app"));
+
+		mockMvc.perform(get("/api/v1/tenants/signin").queryParam("customerName", "acme-corp"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.registrationOutput").value("MANUAL STEP — add these to the Entra app"))
+				.andExpect(jsonPath("$.customerName").doesNotExist())
+				.andExpect(jsonPath("$.registeredAt").doesNotExist());
+	}
+
+	@Test
+	void signinReturnsNullWhenNotYetPolled() throws Exception {
+		when(tenantQueryService.getRegistrationOutput("acme-corp"))
+				.thenReturn(new RegistrationOutputResponse(null));
+
+		mockMvc.perform(get("/api/v1/tenants/signin").queryParam("customerName", "acme-corp"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.registrationOutput").isEmpty());
+	}
+
+	@Test
+	void signinReturnsBadRequestWhenCustomerNameBlank() throws Exception {
+		when(tenantQueryService.getRegistrationOutput(""))
+				.thenThrow(new CoreApiException(ErrorCodes.VALIDATION_FAILED, "customerName is required"));
+
+		mockMvc.perform(get("/api/v1/tenants/signin").queryParam("customerName", ""))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.code").value("VALIDATION_FAILED"))
+				.andExpect(jsonPath("$.message").value("customerName is required"));
+	}
+
+	@Test
+	void signinReturnsNotFoundWhenCustomerUnknown() throws Exception {
+		when(tenantQueryService.getRegistrationOutput("missing"))
+				.thenThrow(new NotFoundException("customer not found"));
+
+		mockMvc.perform(get("/api/v1/tenants/signin").queryParam("customerName", "missing"))
+				.andExpect(status().isNotFound())
+				.andExpect(jsonPath("$.code").value("VALIDATION_FAILED"))
+				.andExpect(jsonPath("$.message").value("customer not found"));
 	}
 
 	@Test

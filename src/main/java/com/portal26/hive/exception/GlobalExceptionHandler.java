@@ -23,6 +23,13 @@ public class GlobalExceptionHandler {
 				.body(new ApiErrorResponse(ErrorCodes.VALIDATION_FAILED, ex.getMessage()));
 	}
 
+	@ExceptionHandler(NotFoundException.class)
+	@ResponseStatus(HttpStatus.NOT_FOUND)
+	public ResponseEntity<ApiErrorResponse> handleNotFound(NotFoundException ex) {
+		return ResponseEntity.status(HttpStatus.NOT_FOUND)
+				.body(new ApiErrorResponse(ErrorCodes.VALIDATION_FAILED, ex.getMessage()));
+	}
+
 	@ExceptionHandler(CoreApiException.class)
 	@ResponseStatus(HttpStatus.BAD_REQUEST)
 	public ResponseEntity<ApiErrorResponse> handleCore(CoreApiException ex) {
