@@ -48,8 +48,8 @@ CREATE TABLE customer (
     msp_id       uuid NOT NULL REFERENCES msp (id),
     name         text NOT NULL,
     tenant_name  text,            -- generated during the job run, not user input
-    status       text NOT NULL DEFAULT 'queued'
-                     CHECK (status IN ('queued', 'running', 'completed', 'completed_with_errors', 'failed')),
+    status       text NOT NULL DEFAULT 'in_progress'
+                     CHECK (status IN ('in_progress', 'completed', 'failed')),
     created_at   timestamptz NOT NULL DEFAULT now(),
     updated_at   timestamptz NOT NULL DEFAULT now(),
     CONSTRAINT uq_customer_name UNIQUE (msp_id, name)

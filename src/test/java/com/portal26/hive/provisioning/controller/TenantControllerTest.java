@@ -52,7 +52,7 @@ class TenantControllerTest {
 										"completed",
 										createdAt,
 										updatedAt),
-								new CustomerListItem("beta-inc", null, "intermediate", "running", createdAt, updatedAt)),
+								new CustomerListItem("beta-inc", null, "intermediate", "in_progress", createdAt, updatedAt)),
 						0,
 						20,
 						2,
@@ -69,7 +69,7 @@ class TenantControllerTest {
 				.andExpect(jsonPath("$.customers[1].customerName").value("beta-inc"))
 				.andExpect(jsonPath("$.customers[1].tenantName").isEmpty())
 				.andExpect(jsonPath("$.customers[1].licensePackage").value("intermediate"))
-				.andExpect(jsonPath("$.customers[1].status").value("running"))
+				.andExpect(jsonPath("$.customers[1].status").value("in_progress"))
 				.andExpect(jsonPath("$.page").value(0))
 				.andExpect(jsonPath("$.size").value(20))
 				.andExpect(jsonPath("$.totalElements").value(2))

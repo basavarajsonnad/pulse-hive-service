@@ -79,7 +79,7 @@ public class Customer {
 		customer.mspId = mspId;
 		customer.name = name;
 		customer.licensePackage = licensePackage;
-		customer.status = ProvisioningStatuses.DB_RUNNING;
+		customer.status = ProvisioningStatuses.CUSTOMER_IN_PROGRESS;
 		customer.createdAt = now;
 		customer.updatedAt = now;
 		return customer;

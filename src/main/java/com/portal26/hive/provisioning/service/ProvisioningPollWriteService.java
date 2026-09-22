@@ -86,7 +86,7 @@ public class ProvisioningPollWriteService {
 				continue;
 			}
 			customerRepository.findById(item.getCustomerId()).ifPresent(customer -> {
-				customer.setStatus(hiveStatus);
+				customer.setStatus(ProvisioningStatuses.toCustomerStatus(hiveStatus));
 				customer.setUpdatedAt(now);
 				if (tenantName != null && !tenantName.isBlank()) {
 					customer.setTenantName(tenantName);

@@ -12,6 +12,9 @@ public final class ProvisioningStatuses {
 	public static final String DB_COMPLETED = "completed";
 	public static final String DB_COMPLETED_WITH_ERRORS = "completed_with_errors";
 	public static final String DB_FAILED = "failed";
+	public static final String CUSTOMER_IN_PROGRESS = "in_progress";
+	public static final String CUSTOMER_COMPLETED = "completed";
+	public static final String CUSTOMER_FAILED = "failed";
 	public static final String JOB_TYPE_SINGLE = "single";
 
 	public static final String CORE_IN_PROGRESS = "in_progress";
@@ -58,6 +61,16 @@ public final class ProvisioningStatuses {
 		return DB_COMPLETED.equals(hiveStatus)
 				|| DB_COMPLETED_WITH_ERRORS.equals(hiveStatus)
 				|| DB_FAILED.equals(hiveStatus);
+	}
+
+	public static String toCustomerStatus(String hiveStatus) {
+		if (DB_FAILED.equals(hiveStatus)) {
+			return CUSTOMER_FAILED;
+		}
+		if (DB_RUNNING.equals(hiveStatus)) {
+			return CUSTOMER_IN_PROGRESS;
+		}
+		return CUSTOMER_COMPLETED;
 	}
 
 	public static String firstFailedStepDetail(CoreJobStatusResponse core) {
