@@ -19,6 +19,7 @@ import com.portal26.hive.provisioning.service.TenantProvisioningService;
 import com.portal26.hive.provisioning.service.TenantQueryService;
 import java.time.Instant;
 import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -44,17 +45,23 @@ class TenantControllerTest {
 	void listReturnsCustomersFromHiveDb() throws Exception {
 		Instant createdAt = Instant.parse("2026-09-21T05:00:00Z");
 		Instant updatedAt = Instant.parse("2026-09-21T05:30:00Z");
+		UUID mspId = UUID.fromString("00000000-0000-0000-0000-000000000001");
+		UUID acmeId = UUID.fromString("11111111-1111-1111-1111-111111111111");
+		UUID betaId = UUID.fromString("22222222-2222-2222-2222-222222222222");
 		when(tenantQueryService.listCustomers(0, 20))
 				.thenReturn(new CustomerListResponse(
 						List.of(
 								new CustomerListItem(
+										acmeId,
+										mspId,
 										"acme-corp",
 										"acme-corp.portal26.ai",
 										"basic",
 										"completed",
 										createdAt,
 										updatedAt),
-								new CustomerListItem("beta-inc", null, "intermediate", "in_progress", createdAt, updatedAt)),
+								new CustomerListItem(
+										betaId, mspId, "beta-inc", null, "intermediate", "in_progress", createdAt, updatedAt)),
 						0,
 						20,
 						2,
@@ -62,12 +69,16 @@ class TenantControllerTest {
 
 		mockMvc.perform(get("/api/v1/tenants"))
 				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.customers[0].customerId").value(acmeId.toString()))
+				.andExpect(jsonPath("$.customers[0].mspId").value(mspId.toString()))
 				.andExpect(jsonPath("$.customers[0].customerName").value("acme-corp"))
 				.andExpect(jsonPath("$.customers[0].tenantName").value("acme-corp.portal26.ai"))
 				.andExpect(jsonPath("$.customers[0].licensePackage").value("basic"))
 				.andExpect(jsonPath("$.customers[0].status").value("completed"))
 				.andExpect(jsonPath("$.customers[0].createdAt").value("2026-09-21T05:00:00Z"))
 				.andExpect(jsonPath("$.customers[0].updatedAt").value("2026-09-21T05:30:00Z"))
+				.andExpect(jsonPath("$.customers[1].customerId").value(betaId.toString()))
+				.andExpect(jsonPath("$.customers[1].mspId").value(mspId.toString()))
 				.andExpect(jsonPath("$.customers[1].customerName").value("beta-inc"))
 				.andExpect(jsonPath("$.customers[1].tenantName").isEmpty())
 				.andExpect(jsonPath("$.customers[1].licensePackage").value("intermediate"))

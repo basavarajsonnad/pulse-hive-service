@@ -85,6 +85,8 @@ public class TenantQueryService {
 
 	private CustomerListItem toItem(Customer customer) {
 		return new CustomerListItem(
+				customer.getId(),
+				customer.getMspId(),
 				customer.getName(),
 				customer.getTenantName(),
 				customer.getLicensePackage(),

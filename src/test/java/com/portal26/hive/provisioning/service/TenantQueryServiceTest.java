@@ -61,10 +61,8 @@ class TenantQueryServiceTest {
 	void listCustomersAppliesRlsThenReadsCustomerTableWithPagination() {
 		Instant createdAt = Instant.parse("2026-09-21T05:00:00Z");
 		Instant updatedAt = Instant.parse("2026-09-21T05:30:00Z");
-		Customer acme = new Customer();
-		acme.setName("acme-corp");
+		Customer acme = Customer.forCreate(MSP_ID, "acme-corp", Customer.LICENSE_PACKAGE_BASIC);
 		acme.setTenantName("acme-corp.portal26.ai");
-		acme.setLicensePackage("basic");
 		acme.setStatus("completed");
 		acme.setCreatedAt(createdAt);
 		acme.setUpdatedAt(updatedAt);
@@ -81,6 +79,8 @@ class TenantQueryServiceTest {
 		assertThat(pageableCaptor.getValue().getPageNumber()).isZero();
 		assertThat(pageableCaptor.getValue().getPageSize()).isEqualTo(20);
 		assertThat(response.customers()).hasSize(1);
+		assertThat(response.customers().get(0).customerId()).isEqualTo(acme.getId());
+		assertThat(response.customers().get(0).mspId()).isEqualTo(MSP_ID);
 		assertThat(response.customers().get(0).customerName()).isEqualTo("acme-corp");
 		assertThat(response.customers().get(0).licensePackage()).isEqualTo("basic");
 		assertThat(response.page()).isZero();
