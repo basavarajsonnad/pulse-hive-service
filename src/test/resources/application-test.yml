@@ -9,3 +9,15 @@ spring:
       ddl-auto: none
   flyway:
     enabled: false
+
+hive:
+  seed-msp-id: 00000000-0000-0000-0000-000000000001
+  provisioning:
+    poll:
+      enabled: false
+
+core:
+  base-url: http://localhost:8081
+  internal-client-id: test
+  connect-timeout-ms: 100
+  read-timeout-ms: 100
