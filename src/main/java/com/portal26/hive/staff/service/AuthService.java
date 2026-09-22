@@ -5,6 +5,8 @@ import com.portal26.hive.cognito.CognitoAuthResult;
 import com.portal26.hive.cognito.CognitoAuthenticationException;
 import com.portal26.hive.config.CognitoProperties;
 import com.portal26.hive.config.SessionProperties;
+import com.portal26.hive.msp.entity.Msp;
+import com.portal26.hive.msp.repository.MspRepository;
 import com.portal26.hive.session.HiveSession;
 import com.portal26.hive.session.SessionStore;
 import com.portal26.hive.staff.dto.AuthUserResponse;
@@ -16,9 +18,9 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.UUID;
-import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -31,16 +33,34 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.server.ResponseStatusException;
 
 @Service
-@RequiredArgsConstructor
 public class AuthService {
 
 	private static final Logger log = LoggerFactory.getLogger(AuthService.class);
 
 	private final CognitoAuthClient cognitoAuthClient;
 	private final StaffRepository staffRepository;
+	private final MspRepository mspRepository;
 	private final SessionStore sessionStore;
 	private final SessionProperties sessionProperties;
 	private final CognitoProperties cognitoProperties;
+	private final UUID seedMspId;
+
+	public AuthService(
+			CognitoAuthClient cognitoAuthClient,
+			StaffRepository staffRepository,
+			MspRepository mspRepository,
+			SessionStore sessionStore,
+			SessionProperties sessionProperties,
+			CognitoProperties cognitoProperties,
+			@Value("${hive.seed-msp-id}") UUID seedMspId) {
+		this.cognitoAuthClient = cognitoAuthClient;
+		this.staffRepository = staffRepository;
+		this.mspRepository = mspRepository;
+		this.sessionStore = sessionStore;
+		this.sessionProperties = sessionProperties;
+		this.cognitoProperties = cognitoProperties;
+		this.seedMspId = seedMspId;
+	}
 
 	public String beginLogin() {
 		return cognitoAuthClient.buildAuthorizeUrl();
@@ -70,11 +90,13 @@ public class AuthService {
 		}
 
 		Staff staff = findOrCreateStaff(cognitoResult.email());
+		UUID mspId = resolveMspId(cognitoResult.provider());
 
 		Instant now = Instant.now();
 		String sessionId = UUID.randomUUID().toString();
 		HiveSession session = new HiveSession(
 				staff.getId(),
+				mspId,
 				staff.getEmail(),
 				staff.getRole(),
 				cognitoResult.accessToken(),
@@ -108,6 +130,31 @@ public class AuthService {
 						.orElseThrow(() -> ex);
 			}
 		});
+	}
+
+	/**
+	 * Reads custom:provider from the ID token. If present, find-or-create an MSP row by name.
+	 * If absent, fall back to the seeded MSP id (local/dev).
+	 */
+	private UUID resolveMspId(String provider) {
+		if (!StringUtils.hasText(provider)) {
+			return seedMspId;
+		}
+		String name = provider.trim();
+		return mspRepository.findByNameIgnoreCase(name)
+				.map(Msp::getId)
+				.orElseGet(() -> {
+					try {
+						Msp saved = mspRepository.save(Msp.forProviderCreate(name));
+						log.info("Created MSP '{}' from Cognito custom:provider on first login", name);
+						return saved.getId();
+					}
+					catch (DataIntegrityViolationException ex) {
+						return mspRepository.findByNameIgnoreCase(name)
+								.map(Msp::getId)
+								.orElseThrow(() -> ex);
+					}
+				});
 	}
 
 	public String logout(String sessionId, HttpServletResponse response) {

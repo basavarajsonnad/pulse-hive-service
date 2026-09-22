@@ -72,6 +72,7 @@ hive:
     bootstrap-admin: ${COGNITO_BOOTSTRAP_ADMIN:false}
     bootstrap-email: ${COGNITO_BOOTSTRAP_EMAIL:admin@portal26.ai}
     bootstrap-password: ${COGNITO_BOOTSTRAP_PASSWORD:Admin@123}
+    bootstrap-provider: ${COGNITO_BOOTSTRAP_PROVIDER:CinchIT}
   session:
     cookie-name: ${HIVE_SESSION_COOKIE_NAME:HIVE_SESSION}
     ttl: ${HIVE_SESSION_TTL:7d}

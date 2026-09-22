@@ -7,6 +7,7 @@ import java.util.UUID;
 
 public record HiveSession(
 		UUID staffId,
+		UUID mspId,
 		String email,
 		HiveRole role,
 		String accessToken,

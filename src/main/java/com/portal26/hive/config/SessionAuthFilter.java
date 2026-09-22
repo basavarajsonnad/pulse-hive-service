@@ -56,6 +56,7 @@ public class SessionAuthFilter extends OncePerRequestFilter {
 			CognitoAuthResult refreshed = cognitoAuthClient.refresh(session.refreshToken(), session.email());
 			HiveSession updated = new HiveSession(
 					session.staffId(),
+					session.mspId(),
 					session.email(),
 					session.role(),
 					refreshed.accessToken(),

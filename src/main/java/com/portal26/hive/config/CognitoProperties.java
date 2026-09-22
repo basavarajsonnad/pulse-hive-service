@@ -19,5 +19,7 @@ public record CognitoProperties(
 		String logoutUri,
 		boolean bootstrapAdmin,
 		String bootstrapEmail,
-		String bootstrapPassword) {
+		String bootstrapPassword,
+		/** Hardcoded custom:provider value written on admin bootstrap. */
+		String bootstrapProvider) {
 }

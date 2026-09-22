@@ -14,11 +14,13 @@ import org.springframework.security.core.userdetails.UserDetails;
 public class HivePrincipal implements UserDetails {
 
 	private final UUID staffId;
+	private final UUID mspId;
 	private final String email;
 	private final HiveRole role;
 
 	public HivePrincipal(HiveSession session) {
 		this.staffId = session.staffId();
+		this.mspId = session.mspId();
 		this.email = session.email();
 		this.role = session.role();
 	}

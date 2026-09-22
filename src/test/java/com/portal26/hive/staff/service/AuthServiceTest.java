@@ -11,6 +11,8 @@ import com.portal26.hive.cognito.CognitoAuthClient;
 import com.portal26.hive.cognito.CognitoAuthResult;
 import com.portal26.hive.config.CognitoProperties;
 import com.portal26.hive.config.SessionProperties;
+import com.portal26.hive.msp.entity.Msp;
+import com.portal26.hive.msp.repository.MspRepository;
 import com.portal26.hive.session.HiveSession;
 import com.portal26.hive.session.SessionStore;
 import com.portal26.hive.staff.entity.Staff;
@@ -30,10 +32,14 @@ import org.springframework.mock.web.MockHttpServletResponse;
 @ExtendWith(MockitoExtension.class)
 class AuthServiceTest {
 
+	private static final UUID SEED_MSP_ID = UUID.fromString("00000000-0000-0000-0000-000000000001");
+
 	@Mock
 	private CognitoAuthClient cognitoAuthClient;
 	@Mock
 	private StaffRepository staffRepository;
+	@Mock
+	private MspRepository mspRepository;
 	@Mock
 	private SessionStore sessionStore;
 
@@ -55,9 +61,16 @@ class AuthServiceTest {
 				"http://localhost:3000",
 				false,
 				"admin@portal26.ai",
-				"Admin@123");
+				"Admin@123",
+				"CinchIT");
 		authService = new AuthService(
-				cognitoAuthClient, staffRepository, sessionStore, sessionProperties, cognitoProperties);
+				cognitoAuthClient,
+				staffRepository,
+				mspRepository,
+				sessionStore,
+				sessionProperties,
+				cognitoProperties,
+				SEED_MSP_ID);
 	}
 
 	@Test
@@ -68,11 +81,13 @@ class AuthServiceTest {
 	}
 
 	@Test
-	void callbackReusesExistingStaffAndCreatesSession() {
+	void callbackReusesExistingStaffAndMspFromProviderClaim() {
 		UUID staffId = UUID.randomUUID();
 		Staff staff = new Staff();
 		staff.setId(staffId);
 		staff.setEmail("admin@portal26.ai");
+
+		Msp msp = Msp.forProviderCreate("CinchIT");
 
 		when(cognitoAuthClient.exchangeAuthorizationCode(eq("auth-code"), eq("oauth-state")))
 				.thenReturn(new CognitoAuthResult(
@@ -80,8 +95,10 @@ class AuthServiceTest {
 						"access-token",
 						"refresh-token",
 						"admin@portal26.ai",
+						"CinchIT",
 						Instant.now().plusSeconds(900)));
 		when(staffRepository.findByEmailIgnoreCase("admin@portal26.ai")).thenReturn(Optional.of(staff));
+		when(mspRepository.findByNameIgnoreCase("CinchIT")).thenReturn(Optional.of(msp));
 
 		MockHttpServletResponse response = new MockHttpServletResponse();
 		String redirect = authService.handleCallback("auth-code", "oauth-state", null, null, response);
@@ -89,11 +106,13 @@ class AuthServiceTest {
 		assertThat(redirect).isEqualTo("http://localhost:3000");
 		assertThat(response.getHeader("Set-Cookie")).contains("HIVE_SESSION=");
 		verify(staffRepository, never()).save(any());
+		verify(mspRepository, never()).save(any());
 
 		ArgumentCaptor<HiveSession> sessionCaptor = ArgumentCaptor.forClass(HiveSession.class);
 		verify(sessionStore).save(any(String.class), sessionCaptor.capture());
 		assertThat(sessionCaptor.getValue().refreshToken()).isEqualTo("refresh-token");
 		assertThat(sessionCaptor.getValue().staffId()).isEqualTo(staffId);
+		assertThat(sessionCaptor.getValue().mspId()).isEqualTo(msp.getId());
 	}
 
 	@Test
@@ -104,6 +123,7 @@ class AuthServiceTest {
 						"access-token",
 						"refresh-token",
 						"newuser@portal26.ai",
+						null,
 						Instant.now().plusSeconds(900)));
 		when(staffRepository.findByEmailIgnoreCase("newuser@portal26.ai")).thenReturn(Optional.empty());
 		when(staffRepository.save(any(Staff.class))).thenAnswer(invocation -> {
@@ -124,6 +144,10 @@ class AuthServiceTest {
 		verify(staffRepository).save(staffCaptor.capture());
 		assertThat(staffCaptor.getValue().getEmail()).isEqualTo("newuser@portal26.ai");
 		assertThat(staffCaptor.getValue().getRole()).isNull();
+
+		ArgumentCaptor<HiveSession> sessionCaptor = ArgumentCaptor.forClass(HiveSession.class);
+		verify(sessionStore).save(any(String.class), sessionCaptor.capture());
+		assertThat(sessionCaptor.getValue().mspId()).isEqualTo(SEED_MSP_ID);
 	}
 
 	@Test

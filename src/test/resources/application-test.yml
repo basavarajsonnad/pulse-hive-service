@@ -33,6 +33,7 @@ hive:
     bootstrap-admin: false
     bootstrap-email: admin@portal26.ai
     bootstrap-password: Admin@123
+    bootstrap-provider: CinchIT
   session:
     cookie-name: HIVE_SESSION
     ttl: 7d

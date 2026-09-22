@@ -120,8 +120,9 @@ public class CognitoAuthClient {
 			if (!StringUtils.hasText(email)) {
 				throw new CognitoAuthenticationException("Cognito id token missing email claim");
 			}
+			String provider = jwt.getClaimAsString("custom:provider");
 			Instant expiresAt = jwt.getExpiresAt() != null ? jwt.getExpiresAt() : Instant.now().plusSeconds(900);
-			return new CognitoAuthResult(idToken, accessToken, refreshToken, email, expiresAt);
+			return new CognitoAuthResult(idToken, accessToken, refreshToken, email, provider, expiresAt);
 		}
 		catch (CognitoAuthenticationException ex) {
 			throw ex;
@@ -150,12 +151,14 @@ public class CognitoAuthClient {
 			if (!StringUtils.hasText(tokenEmail)) {
 				tokenEmail = email;
 			}
+			String provider = jwt.getClaimAsString("custom:provider");
 			Instant expiresAt = jwt.getExpiresAt() != null ? jwt.getExpiresAt() : Instant.now().plusSeconds(900);
 			return new CognitoAuthResult(
 					result.idToken(),
 					result.accessToken(),
 					nextRefresh,
 					tokenEmail,
+					provider,
 					expiresAt);
 		}
 		catch (Exception ex) {
