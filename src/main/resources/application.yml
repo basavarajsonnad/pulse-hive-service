@@ -54,9 +54,6 @@ management:
       http: true
 
 hive:
-  seed-msp-id: ${HIVE_SEED_MSP_ID}
-  # local/test only — prod must leave this false so unresolved MSP fails closed
-  seed-msp-fallback-enabled: ${HIVE_SEED_MSP_FALLBACK_ENABLED:false}
   cors:
     allowed-origins: ${HIVE_CORS_ALLOWED_ORIGINS:http://localhost:3000}
   cognito:

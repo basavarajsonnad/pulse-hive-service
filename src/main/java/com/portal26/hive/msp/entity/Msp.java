@@ -55,7 +55,7 @@ public class Msp {
 	}
 
 	/**
-	 * First-login seed from Cognito custom:provider when no matching MSP row exists.
+	 * First-login create from Cognito custom:provider when no matching MSP row exists.
 	 */
 	public static Msp forProviderCreate(String providerName) {
 		Msp msp = new Msp();

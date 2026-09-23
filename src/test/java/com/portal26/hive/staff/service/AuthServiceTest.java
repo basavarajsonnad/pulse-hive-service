@@ -33,8 +33,6 @@ import org.springframework.mock.web.MockHttpServletResponse;
 @ExtendWith(MockitoExtension.class)
 class AuthServiceTest {
 
-	private static final UUID SEED_MSP_ID = UUID.fromString("00000000-0000-0000-0000-000000000001");
-
 	@Mock
 	private CognitoAuthClient cognitoAuthClient;
 	@Mock
@@ -64,8 +62,7 @@ class AuthServiceTest {
 				"admin@portal26.ai",
 				"Admin@123",
 				"CinchIT");
-		LoginIdentityService loginIdentityService =
-				new LoginIdentityService(staffRepository, mspRepository, SEED_MSP_ID, true);
+		LoginIdentityService loginIdentityService = new LoginIdentityService(staffRepository, mspRepository);
 		authService = new AuthService(
 				cognitoAuthClient,
 				loginIdentityService,
@@ -118,6 +115,44 @@ class AuthServiceTest {
 
 	@Test
 	void callbackCreatesStaffOnFirstLogin() {
+		Msp msp = Msp.forProviderCreate("CinchIT");
+
+		when(cognitoAuthClient.exchangeAuthorizationCode(eq("auth-code"), eq("oauth-state")))
+				.thenReturn(new CognitoAuthResult(
+						"id-token",
+						"access-token",
+						"refresh-token",
+						"newuser@portal26.ai",
+						"CinchIT",
+						Instant.now().plusSeconds(900)));
+		when(staffRepository.findByEmailIgnoreCase("newuser@portal26.ai")).thenReturn(Optional.empty());
+		when(staffRepository.saveAndFlush(any(Staff.class))).thenAnswer(invocation -> {
+			Staff s = invocation.getArgument(0);
+			if (s.getId() == null) {
+				s.setId(UUID.randomUUID());
+			}
+			return s;
+		});
+		when(mspRepository.findByNameIgnoreCase("CinchIT")).thenReturn(Optional.of(msp));
+
+		MockHttpServletResponse response = new MockHttpServletResponse();
+		String redirect = authService.handleCallback("auth-code", "oauth-state", null, null, response);
+
+		assertThat(redirect).isEqualTo("http://localhost:3000");
+		assertThat(response.getHeader("Set-Cookie")).contains("HIVE_SESSION=");
+
+		ArgumentCaptor<Staff> staffCaptor = ArgumentCaptor.forClass(Staff.class);
+		verify(staffRepository).saveAndFlush(staffCaptor.capture());
+		assertThat(staffCaptor.getValue().getEmail()).isEqualTo("newuser@portal26.ai");
+		assertThat(staffCaptor.getValue().getRole()).isNull();
+
+		ArgumentCaptor<HiveSession> sessionCaptor = ArgumentCaptor.forClass(HiveSession.class);
+		verify(sessionStore).save(any(String.class), sessionCaptor.capture());
+		assertThat(sessionCaptor.getValue().mspId()).isEqualTo(msp.getId());
+	}
+
+	@Test
+	void callbackRedirectsWhenProviderClaimMissing() {
 		when(cognitoAuthClient.exchangeAuthorizationCode(eq("auth-code"), eq("oauth-state")))
 				.thenReturn(new CognitoAuthResult(
 						"id-token",
@@ -138,17 +173,9 @@ class AuthServiceTest {
 		MockHttpServletResponse response = new MockHttpServletResponse();
 		String redirect = authService.handleCallback("auth-code", "oauth-state", null, null, response);
 
-		assertThat(redirect).isEqualTo("http://localhost:3000");
-		assertThat(response.getHeader("Set-Cookie")).contains("HIVE_SESSION=");
-
-		ArgumentCaptor<Staff> staffCaptor = ArgumentCaptor.forClass(Staff.class);
-		verify(staffRepository).saveAndFlush(staffCaptor.capture());
-		assertThat(staffCaptor.getValue().getEmail()).isEqualTo("newuser@portal26.ai");
-		assertThat(staffCaptor.getValue().getRole()).isNull();
-
-		ArgumentCaptor<HiveSession> sessionCaptor = ArgumentCaptor.forClass(HiveSession.class);
-		verify(sessionStore).save(any(String.class), sessionCaptor.capture());
-		assertThat(sessionCaptor.getValue().mspId()).isEqualTo(SEED_MSP_ID);
+		assertThat(redirect).isEqualTo("http://localhost:3000?error=login_failed");
+		assertThat(response.getHeader("Set-Cookie")).isNull();
+		verify(sessionStore, never()).save(any(), any());
 	}
 
 	@Test

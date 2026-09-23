@@ -7,7 +7,6 @@ import com.portal26.hive.staff.repository.StaffRepository;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -26,18 +25,10 @@ public class LoginIdentityService {
 
 	private final StaffRepository staffRepository;
 	private final MspRepository mspRepository;
-	private final UUID seedMspId;
-	private final boolean seedMspFallbackEnabled;
 
-	public LoginIdentityService(
-			StaffRepository staffRepository,
-			MspRepository mspRepository,
-			@Value("${hive.seed-msp-id}") UUID seedMspId,
-			@Value("${hive.seed-msp-fallback-enabled:false}") boolean seedMspFallbackEnabled) {
+	public LoginIdentityService(StaffRepository staffRepository, MspRepository mspRepository) {
 		this.staffRepository = staffRepository;
 		this.mspRepository = mspRepository;
-		this.seedMspId = seedMspId;
-		this.seedMspFallbackEnabled = seedMspFallbackEnabled;
 	}
 
 	/**
@@ -62,18 +53,13 @@ public class LoginIdentityService {
 	}
 
 	/**
-	 * Reads custom:provider from the ID token. If present, find-or-create an MSP row by name.
-	 * If absent, fall back to the seeded MSP id only when {@code hive.seed-msp-fallback-enabled}
-	 * is true (local/dev). Otherwise fail closed.
+	 * Reads custom:provider from the ID token. Find-or-create an MSP row by name.
+	 * Fails closed when the claim is absent.
 	 */
 	@Transactional(propagation = Propagation.REQUIRES_NEW)
 	public UUID resolveMspId(String provider) {
 		if (!StringUtils.hasText(provider)) {
-			if (!seedMspFallbackEnabled) {
-				throw new IllegalStateException(
-						"Cognito custom:provider is required when seed MSP fallback is disabled");
-			}
-			return seedMspId;
+			throw new IllegalStateException("Cognito custom:provider is required");
 		}
 		String name = provider.trim();
 		return mspRepository.findByNameIgnoreCase(name)
