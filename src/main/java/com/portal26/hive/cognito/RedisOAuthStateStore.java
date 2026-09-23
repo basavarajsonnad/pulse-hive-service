@@ -24,11 +24,8 @@ public class RedisOAuthStateStore implements OAuthStateStore {
 
 	@Override
 	public Optional<String> consume(String state) {
-		String key = KEY_PREFIX + state;
-		String verifier = redisTemplate.opsForValue().get(key);
-		if (verifier != null) {
-			redisTemplate.delete(key);
-		}
+		// Atomic GETDEL so two concurrent callbacks cannot both read the same PKCE verifier.
+		String verifier = redisTemplate.opsForValue().getAndDelete(KEY_PREFIX + state);
 		return Optional.ofNullable(verifier);
 	}
 }

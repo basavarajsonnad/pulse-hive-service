@@ -14,19 +14,28 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.time.Instant;
 import java.util.Optional;
-import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
-@Component
-@RequiredArgsConstructor
+/**
+ * Registered only via {@link SecurityConfig} so it is not also auto-registered as a
+ * servlet {@code Filter} through component scanning.
+ */
 public class SessionAuthFilter extends OncePerRequestFilter {
 
 	private final SessionStore sessionStore;
 	private final SessionProperties sessionProperties;
 	private final CognitoAuthClient cognitoAuthClient;
+
+	public SessionAuthFilter(
+			SessionStore sessionStore,
+			SessionProperties sessionProperties,
+			CognitoAuthClient cognitoAuthClient) {
+		this.sessionStore = sessionStore;
+		this.sessionProperties = sessionProperties;
+		this.cognitoAuthClient = cognitoAuthClient;
+	}
 
 	@Override
 	protected void doFilterInternal(

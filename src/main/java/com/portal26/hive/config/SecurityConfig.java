@@ -1,5 +1,7 @@
 package com.portal26.hive.config;
 
+import com.portal26.hive.cognito.CognitoAuthClient;
+import com.portal26.hive.session.SessionStore;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -15,6 +17,14 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 @Configuration
 @EnableMethodSecurity
 public class SecurityConfig {
+
+	@Bean
+	SessionAuthFilter sessionAuthFilter(
+			SessionStore sessionStore,
+			SessionProperties sessionProperties,
+			CognitoAuthClient cognitoAuthClient) {
+		return new SessionAuthFilter(sessionStore, sessionProperties, cognitoAuthClient);
+	}
 
 	@Bean
 	SecurityFilterChain securityFilterChain(HttpSecurity http, SessionAuthFilter sessionAuthFilter) throws Exception {
