@@ -8,7 +8,7 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
 /**
- * Test-only OAuth state store so tests do not need Redis.
+ * Test-only OAuth state store so unit/slice tests do not need Postgres.
  */
 @Component
 @Profile("test")

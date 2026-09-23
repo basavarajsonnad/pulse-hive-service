@@ -8,7 +8,7 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
 /**
- * Test-only SessionStore so tests do not need Redis.
+ * Test-only SessionStore so unit/slice tests do not need Postgres session rows.
  */
 @Component
 @Profile("test")

@@ -14,7 +14,7 @@ Modular Spring Boot monolith for Portal26 Hive.
 ## Prerequisites
 
 - **JDK 25** (Temurin 25 recommended). No system Gradle needed — `./gradlew` is bundled.
-- Docker (for local Postgres + Redis), or running PostgreSQL and Redis instances.
+- Docker (for local Postgres), or a running PostgreSQL instance.
 - AWS credentials (e.g. `AWS_PROFILE`) that can call the existing Cognito User Pool.
 
 ## Build
@@ -23,21 +23,21 @@ Modular Spring Boot monolith for Portal26 Hive.
 ./gradlew build
 ```
 
-## Local Postgres + Redis (Docker Compose)
+## Local Postgres (Docker Compose)
 
 ```bash
 cp .env.example .env
 # fill COGNITO_* and AWS_PROFILE in .env
-docker compose up -d postgres redis
+docker compose up -d postgres
 ```
 
-App on the host uses `DB_URL=jdbc:postgresql://localhost:5435/hive` and `REDIS_HOST=localhost` from `.env`.
+App on the host uses `DB_URL=jdbc:postgresql://localhost:5435/hive` from `.env`. Login sessions and OAuth PKCE state are stored in Postgres (`hive_session`, `oauth_state`).
 
 ## Run the API locally
 
 ```bash
 cp .env.example .env
-docker compose up -d postgres redis
+docker compose up -d postgres
 ./gradlew bootRun   # loads `.env` automatically
 ```
 
@@ -52,7 +52,7 @@ Interactive login uses **AWS Cognito Hosted UI** (authorization code + PKCE). Hi
 | Start login | `GET /api/v1/auth/login` → **302** to Cognito Hosted UI |
 | Cognito callback | `GET /api/v1/auth/callback?code=&state=` → exchange code, **find-or-create** `staff` by email, set `HIVE_SESSION`, **302** to frontend |
 | Current user | `GET /api/v1/auth/me` (requires cookie) |
-| Logout | `POST /api/v1/auth/logout` → clear Redis session + cookie, **302** to Cognito `/logout` |
+| Logout | `POST /api/v1/auth/logout` → clear DB session + cookie, **302** to Cognito `/logout` |
 
 Frontend “Sign in” should **navigate** (full page) to `{API}/api/v1/auth/login`, not POST credentials.
 
@@ -92,12 +92,12 @@ Apply via Cognito → User pool → App integration → Domain / Managed Login b
 |---|---|
 | Cognito access / id token (configure on app client) | 15 minutes |
 | Cognito refresh token (configure on app client) | 7 days |
-| Redis session + cookie | 7 days (`HIVE_SESSION_TTL`) |
-| OAuth `state` + PKCE verifier | 10 minutes (Redis) |
+| Postgres `hive_session` + cookie | 7 days (`HIVE_SESSION_TTL`) |
+| OAuth `state` + PKCE verifier | 10 minutes (`oauth_state` table) |
 
-Refresh tokens are stored **only in Redis** (server-side). The browser cookie holds the opaque session id only.
+Refresh tokens are stored **only in Postgres** (`hive_session`, server-side). The browser cookie holds the opaque session id only.
 
-## Run API + Postgres + Redis in Docker
+## Run API + Postgres in Docker
 
 ```bash
 docker compose --profile full up --build
