@@ -24,7 +24,7 @@ Pick the case with the customer_name prefix (3–25 chars, letters/digits/hyphen
   b6-      LD_UI_FLAGS          completed_with_errors     completed
   b7-      LD_BACKEND_FLAGS     completed_with_errors     completed
   b8-      SAML_REGISTRATION    completed_with_errors     completed
-           (no SAML detail persisted)
+           SAML MANUAL STEP text only on ok- (all 8 succeeded)
 
 First GET is in_progress (except run- stays there). Second GET is terminal.
 Use a new name each time, e.g. ok-acme, c1-acme, b4-acme, run-acme.
@@ -153,7 +153,13 @@ def build_steps(scenario: str, customer_name: str) -> tuple[str, str | None, lis
         "LD_SEGMENTS": (T3, T5, "run concluded success"),
         "LD_UI_FLAGS": (T5, T5, SKIP_LD),
         "LD_BACKEND_FLAGS": (T5, T5, SKIP_LD),
-        "SAML_REGISTRATION": (T5, T6, saml_detail(customer_name)),
+        # MANUAL STEP text only when every step succeeded (ok). Hive persists
+        # registration_output only if SAML_REGISTRATION is succeeded + detail set.
+        "SAML_REGISTRATION": (
+            T5,
+            T6,
+            saml_detail(customer_name) if scenario == "ok" else None,
+        ),
     }
 
     steps: list[dict] = []
@@ -352,9 +358,8 @@ def validate_create_body(body: dict) -> dict | None:
 if __name__ == "__main__":
     print(f"Core contract mock  http://127.0.0.1:8081  client-id={CLIENT_ID!r}")
     print("Customer name prefixes:")
-    print("  acme / ok-xxx     -> job completed, customer completed, SAML detail stored")
+    print("  acme / ok-xxx     -> completed; SAML MANUAL STEP shown")
     print("  run-xxx           -> stays in_progress / job running")
-    print("  c1-xxx / c2 / c3  -> job failed, customer failed")
-    print("  b4-xxx … b8-xxx   -> job completed_with_errors, customer completed")
-    print("  b8-xxx            -> no registration_output (SAML step failed)")
+    print("  c1-xxx / c2 / c3  -> job failed, customer failed; no SAML text")
+    print("  b4-xxx … b8-xxx   -> job completed_with_errors, customer completed; no SAML text")
     HTTPServer(("127.0.0.1", 8081), Handler).serve_forever()
