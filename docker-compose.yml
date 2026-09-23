@@ -31,7 +31,6 @@ services:
     env_file:
       - .env
     environment:
-      # Inside Compose, reach Postgres by service name (overrides host localhost URL)
       DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-hive}
       DB_USERNAME: ${POSTGRES_USER:-hive}
       DB_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
