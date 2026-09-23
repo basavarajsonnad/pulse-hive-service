@@ -20,6 +20,8 @@ import java.util.concurrent.atomic.AtomicReference;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
 import org.springframework.security.oauth2.core.OAuth2Error;
 import org.springframework.security.oauth2.core.OAuth2TokenValidator;
@@ -41,6 +43,8 @@ import software.amazon.awssdk.services.cognitoidentityprovider.model.InitiateAut
 @RequiredArgsConstructor
 public class CognitoAuthClient {
 
+	private static final Logger log = LoggerFactory.getLogger(CognitoAuthClient.class);
+
 	private final CognitoIdentityProviderClient cognitoClient;
 	private final CognitoProperties properties;
 	private final OAuthStateStore oauthStateStore;
@@ -61,7 +65,11 @@ public class CognitoAuthClient {
 				.append("/oauth2/authorize")
 				.append("?client_id=").append(encode(properties.clientId()))
 				.append("&response_type=code")
-				.append("&scope=").append(encode("openid email"))
+				// profile helps standard attrs; custom:provider is still a readable client attribute.
+				.append("&scope=").append(encode("openid email profile"))
+				// Force native Cognito login so a leftover Hosted UI SAML session is not reused
+				// (SAML users in this pool do not have custom:provider mapped).
+				.append("&identity_provider=").append(encode("COGNITO"))
 				.append("&redirect_uri=").append(encode(properties.redirectUri()))
 				.append("&state=").append(encode(state))
 				.append("&code_challenge_method=S256")
@@ -120,7 +128,14 @@ public class CognitoAuthClient {
 			if (!StringUtils.hasText(email)) {
 				throw new CognitoAuthenticationException("Cognito id token missing email claim");
 			}
-			String provider = jwt.getClaimAsString("custom:provider");
+			String provider = providerClaim(jwt);
+			if (!StringUtils.hasText(provider)) {
+				log.warn(
+						"Cognito ID token missing custom:provider (email={}, username={}, claimKeys={})",
+						email,
+						jwt.getClaimAsString("cognito:username"),
+						jwt.getClaims().keySet());
+			}
 			Instant expiresAt = jwt.getExpiresAt() != null ? jwt.getExpiresAt() : Instant.now().plusSeconds(900);
 			return new CognitoAuthResult(idToken, accessToken, refreshToken, email, provider, expiresAt);
 		}
@@ -151,7 +166,7 @@ public class CognitoAuthClient {
 			if (!StringUtils.hasText(tokenEmail)) {
 				tokenEmail = email;
 			}
-			String provider = jwt.getClaimAsString("custom:provider");
+			String provider = providerClaim(jwt);
 			Instant expiresAt = jwt.getExpiresAt() != null ? jwt.getExpiresAt() : Instant.now().plusSeconds(900);
 			return new CognitoAuthResult(
 					result.idToken(),
@@ -218,6 +233,19 @@ public class CognitoAuthClient {
 		decoder.setJwtValidator(new DelegatingOAuth2TokenValidator<>(defaults, audience));
 		jwtDecoder.compareAndSet(null, decoder);
 		return jwtDecoder.get();
+	}
+
+	private static String providerClaim(Jwt jwt) {
+		String provider = jwt.getClaimAsString("custom:provider");
+		if (StringUtils.hasText(provider)) {
+			return provider.trim();
+		}
+		Object raw = jwt.getClaims().get("custom:provider");
+		if (raw == null) {
+			return null;
+		}
+		String asText = String.valueOf(raw).trim();
+		return asText.isEmpty() || "null".equals(asText) ? null : asText;
 	}
 
 	private static String generateCodeVerifier() {
