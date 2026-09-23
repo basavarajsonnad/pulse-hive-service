@@ -139,8 +139,8 @@ public class AuthService {
 	private ResponseCookie sessionCookie(String value, java.time.Duration maxAge) {
 		return ResponseCookie.from(sessionProperties.cookieName(), value)
 				.httpOnly(true)
-				.secure(sessionProperties.cookieSecure())
-				.sameSite("Lax")
+				.secure(true)
+				.sameSite("None")
 				.path("/")
 				.maxAge(maxAge)
 				.build();

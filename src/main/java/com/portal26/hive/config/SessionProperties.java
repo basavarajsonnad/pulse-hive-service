@@ -6,6 +6,5 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @ConfigurationProperties(prefix = "hive.session")
 public record SessionProperties(
 		String cookieName,
-		Duration ttl,
-		boolean cookieSecure) {
+		Duration ttl) {
 }

@@ -74,7 +74,6 @@ hive:
   session:
     cookie-name: ${HIVE_SESSION_COOKIE_NAME:HIVE_SESSION}
     ttl: ${HIVE_SESSION_TTL:7d}
-    cookie-secure: ${HIVE_SESSION_COOKIE_SECURE:false}
   provisioning:
     poll:
       enabled: ${HIVE_PROVISIONING_POLL_ENABLED:true}
