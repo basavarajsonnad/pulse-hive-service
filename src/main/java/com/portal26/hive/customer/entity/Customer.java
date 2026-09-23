@@ -12,6 +12,10 @@ import java.util.UUID;
 @Table(name = "customer")
 public class Customer {
 
+	public static final String LICENSE_PACKAGE_BASIC = "basic";
+	public static final String LICENSE_PACKAGE_INTERMEDIATE = "intermediate";
+	public static final String LICENSE_PACKAGE_ADVANCED = "advanced";
+
 	@Id
 	private UUID id;
 
@@ -23,6 +27,9 @@ public class Customer {
 
 	@Column(name = "tenant_name")
 	private String tenantName;
+
+	@Column(name = "license_package", nullable = false)
+	private String licensePackage;
 
 	@Column(nullable = false)
 	private String status;
@@ -49,6 +56,10 @@ public class Customer {
 		return tenantName;
 	}
 
+	public String getLicensePackage() {
+		return licensePackage;
+	}
+
 	public String getStatus() {
 		return status;
 	}
@@ -61,13 +72,14 @@ public class Customer {
 		return updatedAt;
 	}
 
-	public static Customer forCreate(UUID mspId, String name) {
+	public static Customer forCreate(UUID mspId, String name, String licensePackage) {
 		Instant now = Instant.now();
 		Customer customer = new Customer();
 		customer.id = UUID.randomUUID();
 		customer.mspId = mspId;
 		customer.name = name;
-		customer.status = ProvisioningStatuses.DB_RUNNING;
+		customer.licensePackage = licensePackage;
+		customer.status = ProvisioningStatuses.CUSTOMER_IN_PROGRESS;
 		customer.createdAt = now;
 		customer.updatedAt = now;
 		return customer;
@@ -79,6 +91,10 @@ public class Customer {
 
 	public void setTenantName(String tenantName) {
 		this.tenantName = tenantName;
+	}
+
+	public void setLicensePackage(String licensePackage) {
+		this.licensePackage = licensePackage;
 	}
 
 	public void setStatus(String status) {

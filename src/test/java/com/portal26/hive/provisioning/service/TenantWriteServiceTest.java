@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.portal26.hive.customer.entity.Customer;
 import com.portal26.hive.customer.entity.TenantSigninConfig;
 import com.portal26.hive.customer.repository.CustomerRepository;
 import com.portal26.hive.customer.repository.TenantSigninConfigRepository;
@@ -73,10 +74,14 @@ class TenantWriteServiceTest {
 				"groups");
 
 		CreateTenantResponse response =
-				tenantWriteService.insertRunning(MSP_ID, CORE_JOB_ID, "acme-corp", sso);
+				tenantWriteService.insertRunning(MSP_ID, CORE_JOB_ID, "acme-corp", "basic", sso);
 
 		assertThat(response.jobId()).isEqualTo(CORE_JOB_ID);
+		assertThat(response.licensePackage()).isEqualTo("basic");
 		assertThat(response.status()).isEqualTo(ProvisioningStatuses.DB_RUNNING);
+		ArgumentCaptor<Customer> customerCaptor = ArgumentCaptor.forClass(Customer.class);
+		verify(customerRepository).save(customerCaptor.capture());
+		assertThat(customerCaptor.getValue().getLicensePackage()).isEqualTo("basic");
 		ArgumentCaptor<TenantSigninConfig> captor = ArgumentCaptor.forClass(TenantSigninConfig.class);
 		verify(tenantSigninConfigRepository).save(captor.capture());
 		TenantSigninConfig saved = captor.getValue();

@@ -16,17 +16,17 @@ public class GlobalExceptionHandler {
 
 	private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
-	@ExceptionHandler(DuplicateCustomerException.class)
-	@ResponseStatus(HttpStatus.BAD_REQUEST)
-	public ResponseEntity<ApiErrorResponse> handleDuplicate(DuplicateCustomerException ex) {
-		return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-				.body(new ApiErrorResponse(ErrorCodes.VALIDATION_FAILED, ex.getMessage()));
-	}
-
 	@ExceptionHandler(DuplicateTenantException.class)
 	@ResponseStatus(HttpStatus.BAD_REQUEST)
 	public ResponseEntity<ApiErrorResponse> handleDuplicateTenant(DuplicateTenantException ex) {
 		return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+				.body(new ApiErrorResponse(ErrorCodes.VALIDATION_FAILED, ex.getMessage()));
+	}
+
+	@ExceptionHandler(NotFoundException.class)
+	@ResponseStatus(HttpStatus.NOT_FOUND)
+	public ResponseEntity<ApiErrorResponse> handleNotFound(NotFoundException ex) {
+		return ResponseEntity.status(HttpStatus.NOT_FOUND)
 				.body(new ApiErrorResponse(ErrorCodes.VALIDATION_FAILED, ex.getMessage()));
 	}
 

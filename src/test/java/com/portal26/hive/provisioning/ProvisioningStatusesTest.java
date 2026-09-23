@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.portal26.hive.core.client.dto.CoreJobStatusResponse;
 import com.portal26.hive.core.client.dto.CoreJobStepResponse;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -66,10 +67,39 @@ class ProvisioningStatusesTest {
 	}
 
 	@Test
+	void completedWithErrorsMapsToCompletedOnCustomer() {
+		assertThat(ProvisioningStatuses.toCustomerStatus(ProvisioningStatuses.DB_RUNNING))
+				.isEqualTo(ProvisioningStatuses.CUSTOMER_IN_PROGRESS);
+		assertThat(ProvisioningStatuses.toCustomerStatus(ProvisioningStatuses.DB_COMPLETED))
+				.isEqualTo(ProvisioningStatuses.DB_COMPLETED);
+		assertThat(ProvisioningStatuses.toCustomerStatus(ProvisioningStatuses.DB_COMPLETED_WITH_ERRORS))
+				.isEqualTo(ProvisioningStatuses.DB_COMPLETED);
+		assertThat(ProvisioningStatuses.toCustomerStatus(ProvisioningStatuses.DB_FAILED))
+				.isEqualTo(ProvisioningStatuses.DB_FAILED);
+	}
+
+	@Test
 	void unknownCoreStatusIsSkipped() {
 		CoreJobStatusResponse core = job("queued", null, List.of());
 
 		assertThat(ProvisioningStatuses.resolveHiveStatus(core)).isEmpty();
+	}
+
+	@Test
+	void succeededSamlRegistrationRequiresDetail() {
+		assertThat(ProvisioningStatuses.succeededSamlRegistration(
+						job(ProvisioningStatuses.CORE_COMPLETE, "acme.portal26.ai", List.of(allSucceeded()))))
+				.isEmpty();
+		CoreJobStepResponse saml = new CoreJobStepResponse(
+				ProvisioningStatuses.STEP_SAML_REGISTRATION,
+				ProvisioningStatuses.STEP_SUCCEEDED,
+				"redirect URI https://example.com/saml2/idpresponse",
+				Instant.parse("2026-01-15T09:54:50Z"));
+		List<CoreJobStepResponse> steps = new ArrayList<>(List.of(criticalSucceeded()));
+		steps.add(saml);
+		assertThat(ProvisioningStatuses.succeededSamlRegistration(
+						job(ProvisioningStatuses.CORE_COMPLETE, "acme.portal26.ai", steps)))
+				.contains(saml);
 	}
 
 	private static CoreJobStatusResponse job(

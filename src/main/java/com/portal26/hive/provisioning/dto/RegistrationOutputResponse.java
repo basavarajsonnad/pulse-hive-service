@@ -3,7 +3,7 @@ package com.portal26.hive.provisioning.dto;
 import java.time.Instant;
 import java.util.UUID;
 
-public record CustomerListItem(
+public record RegistrationOutputResponse(
 		UUID customerId,
 		UUID mspId,
 		String customerName,
@@ -11,5 +11,6 @@ public record CustomerListItem(
 		String licensePackage,
 		String status,
 		Instant createdAt,
-		Instant updatedAt) {
+		Instant updatedAt,
+		String registrationOutput) {
 }

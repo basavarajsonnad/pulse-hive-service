@@ -3,17 +3,24 @@ package com.portal26.hive.provisioning.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 import com.portal26.hive.customer.entity.Customer;
+import com.portal26.hive.customer.entity.TenantSigninConfig;
 import com.portal26.hive.customer.repository.CustomerRepository;
+import com.portal26.hive.customer.repository.TenantSigninConfigRepository;
 import com.portal26.hive.exception.CoreApiException;
+import com.portal26.hive.exception.NotFoundException;
 import com.portal26.hive.msp.CurrentMspResolver;
 import com.portal26.hive.msp.MspRlsSession;
 import com.portal26.hive.provisioning.dto.CustomerListResponse;
+import com.portal26.hive.provisioning.dto.RegistrationOutputResponse;
+import com.portal26.hive.provisioning.dto.SsoConfig;
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -39,19 +46,22 @@ class TenantQueryServiceTest {
 	@Mock
 	private CustomerRepository customerRepository;
 
+	@Mock
+	private TenantSigninConfigRepository tenantSigninConfigRepository;
+
 	private TenantQueryService tenantQueryService;
 
 	@BeforeEach
 	void setUp() {
-		tenantQueryService = new TenantQueryService(currentMspResolver, mspRlsSession, customerRepository);
+		tenantQueryService = new TenantQueryService(
+				currentMspResolver, mspRlsSession, customerRepository, tenantSigninConfigRepository);
 	}
 
 	@Test
 	void listCustomersAppliesRlsThenReadsCustomerTableWithPagination() {
 		Instant createdAt = Instant.parse("2026-09-21T05:00:00Z");
 		Instant updatedAt = Instant.parse("2026-09-21T05:30:00Z");
-		Customer acme = new Customer();
-		acme.setName("acme-corp");
+		Customer acme = Customer.forCreate(MSP_ID, "acme-corp", Customer.LICENSE_PACKAGE_BASIC);
 		acme.setTenantName("acme-corp.portal26.ai");
 		acme.setStatus("completed");
 		acme.setCreatedAt(createdAt);
@@ -69,7 +79,10 @@ class TenantQueryServiceTest {
 		assertThat(pageableCaptor.getValue().getPageNumber()).isZero();
 		assertThat(pageableCaptor.getValue().getPageSize()).isEqualTo(20);
 		assertThat(response.customers()).hasSize(1);
+		assertThat(response.customers().get(0).customerId()).isEqualTo(acme.getId());
+		assertThat(response.customers().get(0).mspId()).isEqualTo(MSP_ID);
 		assertThat(response.customers().get(0).customerName()).isEqualTo("acme-corp");
+		assertThat(response.customers().get(0).licensePackage()).isEqualTo("basic");
 		assertThat(response.page()).isZero();
 		assertThat(response.size()).isEqualTo(20);
 		assertThat(response.totalElements()).isEqualTo(1);
@@ -95,5 +108,81 @@ class TenantQueryServiceTest {
 		assertThatThrownBy(() -> tenantQueryService.listCustomers(0, 101))
 				.isInstanceOf(CoreApiException.class)
 				.hasMessage("size must be between 1 and 100");
+	}
+
+	@Test
+	void getRegistrationOutputAppliesRlsThenReturnsSigninText() {
+		Customer customer = Customer.forCreate(MSP_ID, "acme-corp", Customer.LICENSE_PACKAGE_BASIC);
+		TenantSigninConfig signin = TenantSigninConfig.forSamlCreate(MSP_ID, customer.getId(), sso());
+		signin.setRegistrationOutput("MANUAL STEP — add these to the Entra app");
+		when(currentMspResolver.currentMspId()).thenReturn(MSP_ID);
+		when(customerRepository.findById(customer.getId())).thenReturn(Optional.of(customer));
+		when(tenantSigninConfigRepository.findByCustomerId(customer.getId())).thenReturn(Optional.of(signin));
+
+		RegistrationOutputResponse response = tenantQueryService.getRegistrationOutput(customer.getId());
+
+		verify(mspRlsSession).apply(MSP_ID);
+		verify(customerRepository).findById(customer.getId());
+		verify(tenantSigninConfigRepository).findByCustomerId(customer.getId());
+		assertThat(response.customerId()).isEqualTo(customer.getId());
+		assertThat(response.mspId()).isEqualTo(MSP_ID);
+		assertThat(response.customerName()).isEqualTo("acme-corp");
+		assertThat(response.licensePackage()).isEqualTo(Customer.LICENSE_PACKAGE_BASIC);
+		assertThat(response.registrationOutput()).isEqualTo("MANUAL STEP — add these to the Entra app");
+	}
+
+	@Test
+	void getRegistrationOutputReturnsNullWhenNotYetPolled() {
+		Customer customer = Customer.forCreate(MSP_ID, "acme-corp", Customer.LICENSE_PACKAGE_BASIC);
+		TenantSigninConfig signin = TenantSigninConfig.forSamlCreate(MSP_ID, customer.getId(), sso());
+		when(currentMspResolver.currentMspId()).thenReturn(MSP_ID);
+		when(customerRepository.findById(customer.getId())).thenReturn(Optional.of(customer));
+		when(tenantSigninConfigRepository.findByCustomerId(customer.getId())).thenReturn(Optional.of(signin));
+
+		RegistrationOutputResponse response = tenantQueryService.getRegistrationOutput(customer.getId());
+
+		assertThat(response.customerId()).isEqualTo(customer.getId());
+		assertThat(response.customerName()).isEqualTo("acme-corp");
+		assertThat(response.registrationOutput()).isNull();
+	}
+
+	@Test
+	void getRegistrationOutputReturnsNullWhenSigninRowMissing() {
+		Customer customer = Customer.forCreate(MSP_ID, "acme-corp", Customer.LICENSE_PACKAGE_BASIC);
+		when(currentMspResolver.currentMspId()).thenReturn(MSP_ID);
+		when(customerRepository.findById(customer.getId())).thenReturn(Optional.of(customer));
+		when(tenantSigninConfigRepository.findByCustomerId(customer.getId())).thenReturn(Optional.empty());
+
+		RegistrationOutputResponse response = tenantQueryService.getRegistrationOutput(customer.getId());
+
+		assertThat(response.registrationOutput()).isNull();
+	}
+
+	@Test
+	void getRegistrationOutputRejectsNullCustomerId() {
+		assertThatThrownBy(() -> tenantQueryService.getRegistrationOutput(null))
+				.isInstanceOf(CoreApiException.class)
+				.hasMessage("customerId is required");
+		verifyNoInteractions(customerRepository, tenantSigninConfigRepository, mspRlsSession);
+	}
+
+	@Test
+	void getRegistrationOutputThrowsWhenCustomerUnknown() {
+		UUID missingId = UUID.fromString("99999999-9999-9999-9999-999999999999");
+		when(currentMspResolver.currentMspId()).thenReturn(MSP_ID);
+		when(customerRepository.findById(missingId)).thenReturn(Optional.empty());
+
+		assertThatThrownBy(() -> tenantQueryService.getRegistrationOutput(missingId))
+				.isInstanceOf(NotFoundException.class)
+				.hasMessage("customer not found");
+		verifyNoInteractions(tenantSigninConfigRepository);
+	}
+
+	private static SsoConfig sso() {
+		return new SsoConfig(
+				"https://acme.okta.com/app/xyz/sso/saml/metadata",
+				"Acme-Okta",
+				"email",
+				"groups");
 	}
 }

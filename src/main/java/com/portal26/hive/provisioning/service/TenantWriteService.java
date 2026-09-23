@@ -4,7 +4,6 @@ import com.portal26.hive.customer.entity.Customer;
 import com.portal26.hive.customer.entity.TenantSigninConfig;
 import com.portal26.hive.customer.repository.CustomerRepository;
 import com.portal26.hive.customer.repository.TenantSigninConfigRepository;
-import com.portal26.hive.exception.DuplicateCustomerException;
 import com.portal26.hive.msp.MspRlsSession;
 import com.portal26.hive.provisioning.ProvisioningStatuses;
 import com.portal26.hive.provisioning.dto.CreateTenantResponse;
@@ -41,25 +40,16 @@ public class TenantWriteService {
 		this.tenantSigninConfigRepository = tenantSigninConfigRepository;
 	}
 
-	@Transactional(readOnly = true)
-	public void assertNameAvailable(UUID mspId, String customerName) {
-		mspRlsSession.apply(mspId);
-		if (customerRepository.existsByMspIdAndName(mspId, customerName)) {
-			throw new DuplicateCustomerException(customerName);
-		}
-	}
-
 	@Transactional
-	public CreateTenantResponse insertRunning(UUID mspId, String coreJobId, String customerName, SsoConfig sso) {
+	public CreateTenantResponse insertRunning(
+			UUID mspId, String coreJobId, String customerName, String licensePackage, SsoConfig sso) {
 		mspRlsSession.apply(mspId);
-		if (customerRepository.existsByMspIdAndName(mspId, customerName)) {
-			throw new DuplicateCustomerException(customerName);
-		}
 		ProvisioningJob job = provisioningJobRepository.save(ProvisioningJob.singleRunning(mspId, coreJobId));
-		Customer customer = customerRepository.save(Customer.forCreate(mspId, customerName));
+		Customer customer = customerRepository.save(Customer.forCreate(mspId, customerName, licensePackage));
 		provisioningItemRepository.save(
 				ProvisioningItem.firstRow(mspId, job.getId(), customer.getId(), customerName));
 		tenantSigninConfigRepository.save(TenantSigninConfig.forSamlCreate(mspId, customer.getId(), sso));
-		return new CreateTenantResponse(job.getCoreJobReference(), customerName, ProvisioningStatuses.DB_RUNNING);
+		return new CreateTenantResponse(
+				job.getCoreJobReference(), customerName, licensePackage, ProvisioningStatuses.DB_RUNNING);
 	}
 }

@@ -3,12 +3,15 @@ package com.portal26.hive.provisioning.controller;
 import com.portal26.hive.provisioning.dto.CreateTenantRequest;
 import com.portal26.hive.provisioning.dto.CreateTenantResponse;
 import com.portal26.hive.provisioning.dto.CustomerListResponse;
+import com.portal26.hive.provisioning.dto.RegistrationOutputResponse;
 import com.portal26.hive.provisioning.service.TenantProvisioningService;
 import com.portal26.hive.provisioning.service.TenantQueryService;
 import jakarta.validation.Valid;
+import java.util.UUID;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -37,6 +40,12 @@ public class TenantController {
 			@RequestParam(defaultValue = "0") int page,
 			@RequestParam(defaultValue = "20") int size) {
 		return tenantQueryService.listCustomers(page, size);
+	}
+
+	@GetMapping("/{customerId}")
+	@ResponseStatus(HttpStatus.OK)
+	public RegistrationOutputResponse signin(@PathVariable UUID customerId) {
+		return tenantQueryService.getRegistrationOutput(customerId);
 	}
 
 	@PostMapping
