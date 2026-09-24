@@ -1,0 +1,18 @@
+<configuration>
+
+    <!-- Baked into the image (referenced by -Dlogging.config in the Dockerfile), not
+         logback-spring.xml. Single-line JSON to STDOUT via LogstashEncoder — this is the
+         convention every service on this platform follows so the shared log collector can
+         parse them uniformly. Requires the `net.logstash.logback:logstash-logback-encoder`
+         dependency in your build. -->
+    <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+            <customFields>{"service":"hive-service"}</customFields>
+        </encoder>
+    </appender>
+
+    <root level="INFO">
+        <appender-ref ref="STDOUT" />
+    </root>
+
+</configuration>

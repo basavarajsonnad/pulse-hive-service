@@ -22,6 +22,15 @@ configurations {
 
 repositories {
 	mavenCentral()
+	maven {
+		name = 'GitHubPackages'
+		// com.titaniamlabs:engine-obf — requires GIT_USERNAME / GIT_TOKEN (read:packages)
+		url = uri('https://maven.pkg.github.com/titaniamlabs/engine-obf')
+		credentials {
+			username = System.getenv('GIT_USERNAME') ?: (findProperty('gpr.user') ?: '')
+			password = System.getenv('GIT_TOKEN') ?: (findProperty('gpr.key') ?: '')
+		}
+	}
 }
 
 dependencies {
@@ -34,7 +43,17 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-flyway'
 	implementation 'org.flywaydb:flyway-database-postgresql'
 	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:3.1.1'
-	implementation 'software.amazon.awssdk:cognitoidentityprovider:2.31.78'
+	// AWS SDK BOM keeps all awssdk module versions aligned — declare modules without versions.
+	implementation platform('software.amazon.awssdk:bom:2.31.78')
+	implementation 'software.amazon.awssdk:cognitoidentityprovider'
+	implementation 'software.amazon.awssdk:secretsmanager'
+	// Required by the DefaultCredentialsProvider (IRSA) path in AwsAppPropertyLoader — the
+	// web-identity token exchange is implemented in the sts module.
+	implementation 'software.amazon.awssdk:sts'
+	implementation 'org.json:json:20240303'
+	implementation 'com.titaniamlabs:engine-obf:0.0.5'
+	// JSON stdout logging via LogstashEncoder (docker-arm64/logback.xml).
+	implementation 'net.logstash.logback:logstash-logback-encoder:8.1'
 
 	compileOnly 'org.projectlombok:lombok'
 	annotationProcessor 'org.projectlombok:lombok'
@@ -55,12 +74,14 @@ tasks.named('test') {
 	useJUnitPlatform()
 }
 
-// Spring Boot does not read `.env` by itself — load it for local `./gradlew bootRun`
+// Spring Boot does not read `.env` by itself — load it for local `./gradlew bootRun`.
+// Default to the local profile so bootRun skips AWS Secrets Manager unless .env overrides it.
 tasks.named('bootRun') {
+	environment 'SPRING_PROFILES_ACTIVE', 'local'
 	doFirst {
 		def envFile = file('.env')
 		if (!envFile.exists()) {
-			logger.warn('No .env file found. Copy .env.example to .env or export DB_URL / DB_USERNAME / DB_PASSWORD.')
+			logger.warn('No .env file found. Copy .env.example to .env (local: HIVE_DATASOURCE_*; deployed: pulse.secretsmanager.properties.keyname).')
 			return
 		}
 		envFile.eachLine { String raw ->

@@ -31,9 +31,9 @@ services:
     env_file:
       - .env
     environment:
-      DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-hive}
-      DB_USERNAME: ${POSTGRES_USER:-hive}
-      DB_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+      HIVE_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-hive}
+      HIVE_DATASOURCE_USERNAME: ${POSTGRES_USER:-hive}
+      HIVE_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
       SERVER_PORT: 8080
     profiles:
       - full

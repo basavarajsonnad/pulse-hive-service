@@ -1,0 +1,41 @@
+name: pr-build
+
+# Build + test on PRs into your default branch. Kept separate from ci.yml so a PR can never
+# trigger a deploy — only a push to the trigger branch does that.
+on:
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: gradle/actions/wrapper-validation@v4
+      - name: Set up JDK 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+      - name: Build and test
+        run: ./gradlew --no-daemon clean build
+
+      - name: Slack - Failed
+        uses: voxmedia/github-action-slack-notify-build@v1.6.0
+        if: failure()
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_NOTIFICATIONS_BOT_TOKEN }}
+        with:
+          channel_id: C0B3RS2S1R7
+          status: FAILED
+          color: danger
+
+      - name: Slack - Success
+        uses: voxmedia/github-action-slack-notify-build@v1.6.0
+        if: success()
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_NOTIFICATIONS_BOT_TOKEN }}
+        with:
+          channel_id: C0B3RS2S1R7
+          status: SUCCESS
+          color: good

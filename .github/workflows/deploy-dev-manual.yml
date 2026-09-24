@@ -1,0 +1,99 @@
+name: deploy-dev-manual
+
+# Manual deploy to dev-test: build+push the arm64 image to ECR, Trivy scan, then
+# `kustomize build | kubectl apply` against the dev-test cluster. Uses static AWS key
+# secrets (not OIDC) — matching how every other service on this platform deploys.
+on:
+  workflow_dispatch:
+
+env:
+  # ECR lives in us-east-2 (shared dev/stg AWS account); the dev-test EKS cluster itself
+  # lives in ap-south-1. Nodes pull the image cross-region — this split is intentional
+  # platform topology, not a mistake. Do not "fix" it to a single region.
+  AWS_REGION: us-east-2
+  EKS_REGION: ap-south-1
+  ECR_REGISTRY: 427028034291.dkr.ecr.us-east-2.amazonaws.com
+  # Confirmed by Portal26: the ECR repository name is pulse-hive-service.
+  ECR_REPOSITORY: pulse-hive-service
+  EKS_CLUSTER: dev-test-eks-v36-01
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: gradle/actions/wrapper-validation@v4
+      - name: Set up JDK 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - name: Build jar
+        run: ./gradlew --no-daemon clean bootJar
+
+      - name: Stage jar for docker build
+        # Dockerfile expects `hive-service.jar` by default (ARG JAR_FILE) — same as ci.yml.
+        run: cp build/libs/pulse-hive-service-0.0.1-SNAPSHOT.jar docker-arm64/hive-service.jar
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.STG_AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.STG_AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      # The Dockerfile only copies the prebuilt jar into an arm64 distroless runtime (no RUN
+      # in that stage), so a plain BuildKit build assembles the arm64 image without QEMU.
+      - name: Build, tag, and push arm64 image
+        working-directory: ./docker-arm64
+        run: |
+          docker build \
+            -t "$ECR_REGISTRY/$ECR_REPOSITORY:dev-latest" \
+            -t "$ECR_REGISTRY/$ECR_REPOSITORY:dev-${{ github.run_number }}" \
+            --push .
+
+      - name: Trivy scan
+        uses: aquasecurity/trivy-action@v0.36.0
+        env:
+          TRIVY_PLATFORM: linux/arm64
+        with:
+          image-ref: ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:dev-${{ github.run_number }}
+          severity: CRITICAL,HIGH
+          exit-code: '0'
+
+      - name: Install kustomize
+        run: |
+          curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" | bash
+          sudo mv kustomize /usr/local/bin/
+
+      - name: Deploy to dev-test
+        run: |
+          aws eks update-kubeconfig --name "$EKS_CLUSTER" --region "$EKS_REGION"
+          cd deployment/dev-test/kustom
+          kustomize edit set image PLACEHOLDER_IMAGE="$ECR_REGISTRY/$ECR_REPOSITORY:dev-${{ github.run_number }}"
+          kustomize build . | kubectl apply -f -
+
+      - name: Slack - Failed
+        uses: voxmedia/github-action-slack-notify-build@v1.6.0
+        if: failure()
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_NOTIFICATIONS_BOT_TOKEN }}
+        with:
+          channel_id: C0B3RS2S1R7
+          status: FAILED
+          color: danger
+
+      - name: Slack - Success
+        uses: voxmedia/github-action-slack-notify-build@v1.6.0
+        if: success()
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_NOTIFICATIONS_BOT_TOKEN }}
+        with:
+          channel_id: C0B3RS2S1R7
+          status: SUCCESS
+          color: good

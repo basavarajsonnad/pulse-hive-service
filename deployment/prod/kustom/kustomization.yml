@@ -1,0 +1,51 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../base
+  - hpa.yml
+
+images:
+  - name: PLACEHOLDER_IMAGE
+    # Confirmed by Portal26: the ECR repository name is pulse-hive-service. Note the prod ECR
+    # account (309325302342) differs from dev-test/stg (427028034291).
+    newName: 309325302342.dkr.ecr.us-east-2.amazonaws.com/pulse-hive-service
+    newTag: prod-latest
+
+patches:
+  - target:
+      kind: Deployment
+      name: pulse-hive-service
+    patch: |
+      - op: replace
+        path: /spec/template/spec/containers/0/env/0/value
+        value: prod
+      - op: replace
+        path: /spec/template/spec/containers/0/env/2/value
+        value: prod
+      - op: replace
+        path: /spec/template/spec/containers/0/resources
+        value:
+          requests:
+            cpu: 600m
+            memory: 2000Mi
+          limits:
+            cpu: 1500m
+            memory: 4000Mi
+      - op: replace
+        path: /spec/template/spec/containers/0/env/3/value
+        value: '-Xms1024m -Xmx1024m'
+      # AWS Secrets Manager loader inputs — see README "Secrets Manager" section. Two secrets,
+      # comma-separated, both CONFIRMED by Portal26 (not guesses): partner-gateway-auth
+      # (shared with partner-gateway; supplies the X-P26-Internal-Client-Id header value) and
+      # hive-service (your own config).
+      - op: add
+        path: /spec/template/spec/containers/0/env/-
+        value:
+          name: titaniam.aws.region
+          value: us-east-2
+      - op: add
+        path: /spec/template/spec/containers/0/env/-
+        value:
+          name: pulse.secretsmanager.properties.keyname
+          value: pulse.prod.partner-gateway-auth.properties,pulse.prod.hive-service.properties

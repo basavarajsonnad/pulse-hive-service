@@ -1,19 +1,8 @@
 spring:
   application:
     name: pulse-hive-service
-  datasource:
-    url: ${DB_URL}
-    username: ${DB_USERNAME}
-    password: ${DB_PASSWORD}
-    hikari:
-      pool-name: pulse-hive-hikari
-      maximum-pool-size: ${DB_POOL_MAX_SIZE:15}
-      minimum-idle: ${DB_POOL_MIN_IDLE:5}
-      connection-timeout: ${DB_POOL_CONNECTION_TIMEOUT_MS:30000}
-      idle-timeout: ${DB_POOL_IDLE_TIMEOUT_MS:600000}
-      max-lifetime: ${DB_POOL_MAX_LIFETIME_MS:1800000}
-      leak-detection-threshold: ${DB_POOL_LEAK_DETECTION_MS:60000}
-      register-mbeans: true
+  # Datasource is built manually in DataSourceConfig from hive.datasource.* (SM / local profile).
+  # Do not use spring.datasource.* — empty placeholders here would shadow Secrets Manager.
   jpa:
     hibernate:
       ddl-auto: validate
@@ -22,12 +11,15 @@ spring:
     enabled: true
     locations: classpath:db/migration
     baseline-on-migrate: true
-    # Owner/DDL role when app uses a DML-only role (e.g. hive_app) for RLS.
-    user: ${FLYWAY_USER:${POSTGRES_USER:${DB_USERNAME}}}
-    password: ${FLYWAY_PASSWORD:${POSTGRES_PASSWORD:${DB_PASSWORD}}}
+    # Optional DDL override via FLYWAY_USER / FLYWAY_PASSWORD (or SPRING_FLYWAY_*).
+    # When unset, Flyway uses the primary DataSource.
 
 server:
   port: ${SERVER_PORT:8080}
+  servlet:
+    # ALB/NodePort route the /hive/ path-prefix to this pod; probes hit /hive/actuator/health.
+    # Overridable for local dev (set SERVER_CONTEXT_PATH=/ to drop the prefix locally).
+    context-path: ${SERVER_CONTEXT_PATH:/hive}
 
 management:
   endpoints:
@@ -54,6 +46,17 @@ management:
       http: true
 
 hive:
+  # url / username / password come from AWS SM (hive.datasource.*) outside local/test.
+  datasource:
+    hikari:
+      pool-name: pulse-hive-hikari
+      maximum-pool-size: ${DB_POOL_MAX_SIZE:15}
+      minimum-idle: ${DB_POOL_MIN_IDLE:5}
+      connection-timeout: ${DB_POOL_CONNECTION_TIMEOUT_MS:30000}
+      idle-timeout: ${DB_POOL_IDLE_TIMEOUT_MS:600000}
+      max-lifetime: ${DB_POOL_MAX_LIFETIME_MS:1800000}
+      leak-detection-threshold: ${DB_POOL_LEAK_DETECTION_MS:60000}
+      register-mbeans: true
   cors:
     allowed-origins: ${HIVE_CORS_ALLOWED_ORIGINS:http://localhost:3000}
   cognito:

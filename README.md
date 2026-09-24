@@ -31,7 +31,7 @@ cp .env.example .env
 docker compose up -d postgres
 ```
 
-App on the host uses `DB_URL=jdbc:postgresql://localhost:5435/hive` from `.env`. Login sessions and OAuth PKCE state are stored in Postgres (`hive_session`, `oauth_state`).
+App on the host uses `HIVE_DATASOURCE_URL=jdbc:postgresql://localhost:5435/hive` from `.env` (local profile). Login sessions and OAuth PKCE state are stored in Postgres (`hive_session`, `oauth_state`).
 
 ## Run the API locally
 

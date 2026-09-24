@@ -9,6 +9,7 @@ target/
 .java-version
 
 ### STS ###
+bin/
 .apt_generated
 .classpath
 .factorypath

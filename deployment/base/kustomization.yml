@@ -1,0 +1,11 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Shared resources for every environment. Overlays (dev-test/stg/prod) set the image,
+# resources, replicas, and active profile.
+#
+# NOTE: the NodePort Service and the internal ALB Ingress are intentionally NOT here — per
+# platform convention they live in Portal26's own internal deploy repo, not in this
+# repository. See README.
+resources:
+  - deployment.yml
