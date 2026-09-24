@@ -69,6 +69,7 @@ class ProvisioningPollWriteServiceTest {
 		ProvisioningJob job = ProvisioningJob.singleRunning(MSP_ID, CORE_JOB_ID);
 		Customer customer = Customer.forCreate(MSP_ID, "acme-corp", Customer.LICENSE_PACKAGE_BASIC);
 		ProvisioningItem item = ProvisioningItem.firstRow(MSP_ID, job.getId(), customer.getId(), "acme-corp");
+		item.setError("TURBO_AND_MDM running");
 		when(provisioningJobRepository.findById(job.getId())).thenReturn(Optional.of(job));
 		when(provisioningItemRepository.findByJobId(job.getId())).thenReturn(List.of(item));
 		when(customerRepository.findById(customer.getId())).thenReturn(Optional.of(customer));
@@ -103,6 +104,25 @@ class ProvisioningPollWriteServiceTest {
 		assertThat(job.getStatus()).isEqualTo(ProvisioningStatuses.DB_COMPLETED_WITH_ERRORS);
 		assertThat(job.getSuccessCount()).isEqualTo(1);
 		assertThat(item.getError()).isEqualTo("SSO metadata rejected");
+		assertThat(customer.getStatus()).isEqualTo(ProvisioningStatuses.DB_COMPLETED);
+		assertThat(customer.getTenantName()).isEqualTo("acme.portal26.ai");
+		verify(tenantSigninConfigRepository, never()).findByCustomerId(customer.getId());
+	}
+
+	@Test
+	void completedWithErrorsStoresEveryFailedBestEffortStep() {
+		ProvisioningJob job = ProvisioningJob.singleRunning(MSP_ID, CORE_JOB_ID);
+		Customer customer = Customer.forCreate(MSP_ID, "acme-corp", Customer.LICENSE_PACKAGE_BASIC);
+		ProvisioningItem item = ProvisioningItem.firstRow(MSP_ID, job.getId(), customer.getId(), "acme-corp");
+		when(provisioningJobRepository.findById(job.getId())).thenReturn(Optional.of(job));
+		when(provisioningItemRepository.findByJobId(job.getId())).thenReturn(List.of(item));
+		when(customerRepository.findById(customer.getId())).thenReturn(Optional.of(customer));
+
+		writeService.applyCoreStatus(MSP_ID, job.getId(), completedWithMultipleBestEffortFails());
+
+		assertThat(job.getStatus()).isEqualTo(ProvisioningStatuses.DB_COMPLETED_WITH_ERRORS);
+		assertThat(item.getError())
+				.isEqualTo("TURBO_AND_MDM failed; LD_SEGMENTS failed; LD_BACKEND_FLAGS failed");
 		assertThat(customer.getStatus()).isEqualTo(ProvisioningStatuses.DB_COMPLETED);
 		assertThat(customer.getTenantName()).isEqualTo("acme.portal26.ai");
 		verify(tenantSigninConfigRepository, never()).findByCustomerId(customer.getId());
@@ -164,6 +184,92 @@ class ProvisioningPollWriteServiceTest {
 	}
 
 	@Test
+	void inProgressUpdatesOnlyRunningItem() {
+		ProvisioningJob job = ProvisioningJob.singleRunning(MSP_ID, CORE_JOB_ID);
+		Customer customer = Customer.forCreate(MSP_ID, "acme-corp", Customer.LICENSE_PACKAGE_BASIC);
+		ProvisioningItem item = ProvisioningItem.firstRow(MSP_ID, job.getId(), customer.getId(), "acme-corp");
+		when(provisioningJobRepository.findById(job.getId())).thenReturn(Optional.of(job));
+		when(provisioningItemRepository.findByJobId(job.getId())).thenReturn(List.of(item));
+
+		writeService.applyCoreStatus(MSP_ID, job.getId(), inProgressJob());
+
+		verify(provisioningItemRepository).save(item);
+		verify(provisioningJobRepository, never()).save(job);
+		verify(customerRepository, never()).findById(customer.getId());
+		verify(customerRepository, never()).save(org.mockito.ArgumentMatchers.any());
+		verify(tenantSigninConfigRepository, never()).findByCustomerId(customer.getId());
+		verify(tenantSigninConfigRepository, never()).save(org.mockito.ArgumentMatchers.any());
+		assertThat(job.getStatus()).isEqualTo(ProvisioningStatuses.DB_RUNNING);
+		assertThat(item.getStatus()).isEqualTo(ProvisioningStatuses.DB_RUNNING);
+		assertThat(item.getError()).isEqualTo("AWAIT_PROVISIONING running");
+		assertThat(customer.getStatus()).isEqualTo(ProvisioningStatuses.CUSTOMER_IN_PROGRESS);
+		assertThat(customer.getTenantName()).isNull();
+	}
+
+	@Test
+	void afterThreeCriticalStepsWritesTenantNameNotStatus() {
+		ProvisioningJob job = ProvisioningJob.singleRunning(MSP_ID, CORE_JOB_ID);
+		Customer customer = Customer.forCreate(MSP_ID, "acme-corp", Customer.LICENSE_PACKAGE_BASIC);
+		ProvisioningItem item = ProvisioningItem.firstRow(MSP_ID, job.getId(), customer.getId(), "acme-corp");
+		when(provisioningJobRepository.findById(job.getId())).thenReturn(Optional.of(job));
+		when(provisioningItemRepository.findByJobId(job.getId())).thenReturn(List.of(item));
+		when(customerRepository.findById(customer.getId())).thenReturn(Optional.of(customer));
+
+		writeService.applyCoreStatus(MSP_ID, job.getId(), inProgressAfterThreeSteps());
+
+		verify(provisioningItemRepository).save(item);
+		verify(customerRepository).save(customer);
+		verify(provisioningJobRepository, never()).save(job);
+		verify(tenantSigninConfigRepository, never()).findByCustomerId(customer.getId());
+		verify(tenantSigninConfigRepository, never()).save(org.mockito.ArgumentMatchers.any());
+		assertThat(job.getStatus()).isEqualTo(ProvisioningStatuses.DB_RUNNING);
+		assertThat(item.getStatus()).isEqualTo(ProvisioningStatuses.DB_COMPLETED);
+		assertThat(item.getError()).isNull();
+		assertThat(customer.getStatus()).isEqualTo(ProvisioningStatuses.CUSTOMER_IN_PROGRESS);
+		assertThat(customer.getTenantName()).isEqualTo("acme.portal26.ai");
+	}
+
+	@Test
+	void midRunBestEffortFailUpdatesItemOnly() {
+		ProvisioningJob job = ProvisioningJob.singleRunning(MSP_ID, CORE_JOB_ID);
+		Customer customer = Customer.forCreate(MSP_ID, "acme-corp", Customer.LICENSE_PACKAGE_BASIC);
+		ProvisioningItem item = ProvisioningItem.firstRow(MSP_ID, job.getId(), customer.getId(), "acme-corp");
+		item.setStatus(ProvisioningStatuses.DB_COMPLETED);
+		when(provisioningJobRepository.findById(job.getId())).thenReturn(Optional.of(job));
+		when(provisioningItemRepository.findByJobId(job.getId())).thenReturn(List.of(item));
+		when(customerRepository.findById(customer.getId())).thenReturn(Optional.of(customer));
+
+		writeService.applyCoreStatus(MSP_ID, job.getId(), inProgressAfterThreeWithBestEffortFail());
+
+		verify(provisioningItemRepository).save(item);
+		verify(customerRepository).save(customer);
+		verify(provisioningJobRepository, never()).save(job);
+		verify(tenantSigninConfigRepository, never()).findByCustomerId(customer.getId());
+		assertThat(job.getStatus()).isEqualTo(ProvisioningStatuses.DB_RUNNING);
+		assertThat(item.getStatus()).isEqualTo(ProvisioningStatuses.DB_COMPLETED_WITH_ERRORS);
+		assertThat(item.getError()).isEqualTo("TURBO_AND_MDM failed");
+		assertThat(customer.getStatus()).isEqualTo(ProvisioningStatuses.CUSTOMER_IN_PROGRESS);
+		assertThat(customer.getTenantName()).isEqualTo("acme.portal26.ai");
+	}
+
+	@Test
+	void inProgressDoesNotWriteSamlBeforeJobFinishes() {
+		ProvisioningJob job = ProvisioningJob.singleRunning(MSP_ID, CORE_JOB_ID);
+		Customer customer = Customer.forCreate(MSP_ID, "acme-corp", Customer.LICENSE_PACKAGE_BASIC);
+		ProvisioningItem item = ProvisioningItem.firstRow(MSP_ID, job.getId(), customer.getId(), "acme-corp");
+		when(provisioningJobRepository.findById(job.getId())).thenReturn(Optional.of(job));
+		when(provisioningItemRepository.findByJobId(job.getId())).thenReturn(List.of(item));
+
+		writeService.applyCoreStatus(MSP_ID, job.getId(), inProgressJobWithSamlDetail());
+
+		verify(provisioningItemRepository).save(item);
+		verify(provisioningJobRepository, never()).save(job);
+		verify(customerRepository, never()).save(org.mockito.ArgumentMatchers.any());
+		verify(tenantSigninConfigRepository, never()).findByCustomerId(org.mockito.ArgumentMatchers.any());
+		assertThat(item.getStatus()).isEqualTo(ProvisioningStatuses.DB_RUNNING);
+	}
+
+	@Test
 	void skipsWhenJobIsNotRunning() {
 		ProvisioningJob job = ProvisioningJob.singleRunning(MSP_ID, CORE_JOB_ID);
 		job.setStatus(ProvisioningStatuses.DB_COMPLETED);
@@ -201,12 +307,38 @@ class ProvisioningPollWriteServiceTest {
 						step("SAML_REGISTRATION", ProvisioningStatuses.STEP_SUCCEEDED)));
 	}
 
+	private static CoreJobStatusResponse completedWithMultipleBestEffortFails() {
+		return new CoreJobStatusResponse(
+				CORE_JOB_ID,
+				"acme-corp",
+				"acme.portal26.ai",
+				ProvisioningStatuses.CORE_COMPLETE,
+				List.of(
+						step("CREATE_TENANT", ProvisioningStatuses.STEP_SUCCEEDED),
+						step("AWAIT_PROVISIONING", ProvisioningStatuses.STEP_SUCCEEDED),
+						step("RESOLVE_TENANT_NAME", ProvisioningStatuses.STEP_SUCCEEDED),
+						new CoreJobStepResponse(
+								"TURBO_AND_MDM",
+								ProvisioningStatuses.STEP_FAILED,
+								"TURBO_AND_MDM failed"),
+						new CoreJobStepResponse(
+								"LD_SEGMENTS",
+								ProvisioningStatuses.STEP_FAILED,
+								"LD_SEGMENTS failed"),
+						step("LD_UI_FLAGS", ProvisioningStatuses.STEP_SUCCEEDED),
+						new CoreJobStepResponse(
+								"LD_BACKEND_FLAGS",
+								ProvisioningStatuses.STEP_FAILED,
+								"LD_BACKEND_FLAGS failed"),
+						step("SAML_REGISTRATION", ProvisioningStatuses.STEP_SUCCEEDED)));
+	}
+
 	private static CoreJobStatusResponse completedWithErrorsJob() {
 		return new CoreJobStatusResponse(
 				CORE_JOB_ID,
 				"acme-corp",
 				"acme.portal26.ai",
-				ProvisioningStatuses.CORE_FAILED,
+				ProvisioningStatuses.CORE_COMPLETE,
 				List.of(
 						step("CREATE_TENANT", ProvisioningStatuses.STEP_SUCCEEDED),
 						step("AWAIT_PROVISIONING", ProvisioningStatuses.STEP_SUCCEEDED),
@@ -240,6 +372,66 @@ class ProvisioningPollWriteServiceTest {
 								ProvisioningStatuses.STEP_SUCCEEDED,
 								SAML_DETAIL,
 								endedAt)));
+	}
+
+	private static CoreJobStatusResponse inProgressJob() {
+		return new CoreJobStatusResponse(
+				CORE_JOB_ID,
+				"acme-corp",
+				null,
+				ProvisioningStatuses.CORE_IN_PROGRESS,
+				List.of(
+						step("CREATE_TENANT", ProvisioningStatuses.STEP_SUCCEEDED),
+						step("AWAIT_PROVISIONING", "running"),
+						step("SAML_REGISTRATION", "pending")));
+	}
+
+	private static CoreJobStatusResponse inProgressAfterThreeSteps() {
+		return new CoreJobStatusResponse(
+				CORE_JOB_ID,
+				"acme-corp",
+				"acme.portal26.ai",
+				ProvisioningStatuses.CORE_IN_PROGRESS,
+				List.of(
+						step("CREATE_TENANT", ProvisioningStatuses.STEP_SUCCEEDED),
+						step("AWAIT_PROVISIONING", ProvisioningStatuses.STEP_SUCCEEDED),
+						step("RESOLVE_TENANT_NAME", ProvisioningStatuses.STEP_SUCCEEDED),
+						step("TURBO_AND_MDM", "running"),
+						step("LD_SEGMENTS", "pending"),
+						step("LD_UI_FLAGS", "pending"),
+						step("LD_BACKEND_FLAGS", "pending"),
+						step("SAML_REGISTRATION", "pending")));
+	}
+
+	private static CoreJobStatusResponse inProgressAfterThreeWithBestEffortFail() {
+		return new CoreJobStatusResponse(
+				CORE_JOB_ID,
+				"acme-corp",
+				"acme.portal26.ai",
+				ProvisioningStatuses.CORE_IN_PROGRESS,
+				List.of(
+						step("CREATE_TENANT", ProvisioningStatuses.STEP_SUCCEEDED),
+						step("AWAIT_PROVISIONING", ProvisioningStatuses.STEP_SUCCEEDED),
+						step("RESOLVE_TENANT_NAME", ProvisioningStatuses.STEP_SUCCEEDED),
+						new CoreJobStepResponse(
+								"TURBO_AND_MDM", ProvisioningStatuses.STEP_FAILED, "TURBO_AND_MDM failed"),
+						step("LD_SEGMENTS", "pending"),
+						step("SAML_REGISTRATION", "pending")));
+	}
+
+	private static CoreJobStatusResponse inProgressJobWithSamlDetail() {
+		return new CoreJobStatusResponse(
+				CORE_JOB_ID,
+				"acme-corp",
+				"acme.portal26.ai",
+				ProvisioningStatuses.CORE_IN_PROGRESS,
+				List.of(
+						step("CREATE_TENANT", ProvisioningStatuses.STEP_SUCCEEDED),
+						step("AWAIT_PROVISIONING", "running"),
+						new CoreJobStepResponse(
+								ProvisioningStatuses.STEP_SAML_REGISTRATION,
+								ProvisioningStatuses.STEP_SUCCEEDED,
+								SAML_DETAIL)));
 	}
 
 	private static CoreJobStatusResponse unknownJob() {
