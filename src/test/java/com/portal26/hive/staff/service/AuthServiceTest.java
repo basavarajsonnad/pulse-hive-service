@@ -46,7 +46,7 @@ class AuthServiceTest {
 
 	@BeforeEach
 	void setUp() {
-		SessionProperties sessionProperties = new SessionProperties("HIVE_SESSION", Duration.ofDays(7), false);
+		SessionProperties sessionProperties = new SessionProperties("HIVE_SESSION", Duration.ofDays(7));
 		CognitoProperties cognitoProperties = new CognitoProperties(
 				"ap-south-1",
 				"test-pool",
@@ -102,7 +102,10 @@ class AuthServiceTest {
 		String redirect = authService.handleCallback("auth-code", "oauth-state", null, null, response);
 
 		assertThat(redirect).isEqualTo("http://localhost:3000");
-		assertThat(response.getHeader("Set-Cookie")).contains("HIVE_SESSION=");
+		assertThat(response.getHeader("Set-Cookie"))
+				.contains("HIVE_SESSION=")
+				.contains("SameSite=None")
+				.contains("Secure");
 		verify(staffRepository, never()).saveAndFlush(any());
 		verify(mspRepository, never()).saveAndFlush(any());
 
@@ -139,7 +142,10 @@ class AuthServiceTest {
 		String redirect = authService.handleCallback("auth-code", "oauth-state", null, null, response);
 
 		assertThat(redirect).isEqualTo("http://localhost:3000");
-		assertThat(response.getHeader("Set-Cookie")).contains("HIVE_SESSION=");
+		assertThat(response.getHeader("Set-Cookie"))
+				.contains("HIVE_SESSION=")
+				.contains("SameSite=None")
+				.contains("Secure");
 
 		ArgumentCaptor<Staff> staffCaptor = ArgumentCaptor.forClass(Staff.class);
 		verify(staffRepository).saveAndFlush(staffCaptor.capture());
