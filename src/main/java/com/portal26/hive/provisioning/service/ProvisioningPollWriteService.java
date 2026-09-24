@@ -64,6 +64,10 @@ public class ProvisioningPollWriteService {
 			return;
 		}
 		String hiveStatus = mapped.get();
+		if (ProvisioningStatuses.DB_RUNNING.equals(hiveStatus)) {
+			updateItemProgressOnly(jobId, core);
+			return;
+		}
 		job.setStatus(hiveStatus);
 		if (ProvisioningStatuses.isTerminal(hiveStatus)) {
 			job.setFinishedAt(Instant.now());
@@ -84,9 +88,7 @@ public class ProvisioningPollWriteService {
 		for (ProvisioningItem item : provisioningItemRepository.findByJobId(jobId)) {
 			item.setStatus(hiveStatus);
 			item.setUpdatedAt(now);
-			if (error != null) {
-				item.setError(error);
-			}
+			item.setError(error);
 			provisioningItemRepository.save(item);
 			if (item.getCustomerId() == null) {
 				continue;
@@ -103,6 +105,34 @@ public class ProvisioningPollWriteService {
 		}
 	}
 
+	private void updateItemProgressOnly(UUID jobId, CoreJobStatusResponse core) {
+		Instant now = Instant.now();
+		String itemStatus = ProvisioningStatuses.midRunItemStatus(core);
+		String itemError = ProvisioningStatuses.midRunItemError(core);
+		Optional<String> tenantName = ProvisioningStatuses.resolvedTenantName(core);
+		for (ProvisioningItem item : provisioningItemRepository.findByJobId(jobId)) {
+			item.setStatus(itemStatus);
+			item.setError(itemError);
+			item.setUpdatedAt(now);
+			provisioningItemRepository.save(item);
+			tenantName.ifPresent(name -> writeTenantNameOnly(item.getCustomerId(), name, now));
+		}
+	}
+
+	private void writeTenantNameOnly(UUID customerId, String tenantName, Instant now) {
+		if (customerId == null) {
+			return;
+		}
+		customerRepository.findById(customerId).ifPresent(customer -> {
+			if (tenantName.equals(customer.getTenantName())) {
+				return;
+			}
+			customer.setTenantName(tenantName);
+			customer.setUpdatedAt(now);
+			customerRepository.save(customer);
+		});
+	}
+
 	private void persistSamlRegistration(UUID customerId, CoreJobStepResponse step, Instant now) {
 		tenantSigninConfigRepository.findByCustomerId(customerId).ifPresent(config -> {
 			config.setRegistrationOutput(step.detail());
@@ -117,7 +147,7 @@ public class ProvisioningPollWriteService {
 	private static String itemError(String hiveStatus, CoreJobStatusResponse core) {
 		if (ProvisioningStatuses.DB_FAILED.equals(hiveStatus)
 				|| ProvisioningStatuses.DB_COMPLETED_WITH_ERRORS.equals(hiveStatus)) {
-			return ProvisioningStatuses.firstFailedStepDetail(core);
+			return ProvisioningStatuses.failedStepDetails(core);
 		}
 		return null;
 	}

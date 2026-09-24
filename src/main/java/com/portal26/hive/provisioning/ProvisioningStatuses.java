@@ -2,6 +2,7 @@ package com.portal26.hive.provisioning;
 
 import com.portal26.hive.core.client.dto.CoreJobStatusResponse;
 import com.portal26.hive.core.client.dto.CoreJobStepResponse;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -41,17 +42,22 @@ public final class ProvisioningStatuses {
 		if (core == null || core.status() == null || core.status().isBlank()) {
 			return Optional.empty();
 		}
-		String coreStatus = core.status();
-		if (CORE_IN_PROGRESS.equals(coreStatus)) {
+		if (anyCriticalFailed(core)) {
+			return Optional.of(DB_FAILED);
+		}
+		if (CORE_IN_PROGRESS.equals(core.status())) {
 			return Optional.of(DB_RUNNING);
 		}
-		if (CORE_COMPLETE.equals(coreStatus)) {
-			return Optional.of(DB_COMPLETED);
+		if (CORE_COMPLETE.equals(core.status()) && !allEightStepsFinished(core)) {
+			return Optional.of(DB_RUNNING);
 		}
 		if (criticalSucceeded(core) && anyBestEffortFailed(core)) {
 			return Optional.of(DB_COMPLETED_WITH_ERRORS);
 		}
-		if (CORE_FAILED.equals(coreStatus)) {
+		if (CORE_COMPLETE.equals(core.status())) {
+			return Optional.of(DB_COMPLETED);
+		}
+		if (CORE_FAILED.equals(core.status())) {
 			return Optional.of(DB_FAILED);
 		}
 		return Optional.empty();
@@ -89,19 +95,119 @@ public final class ProvisioningStatuses {
 		return Optional.empty();
 	}
 
-	public static String firstFailedStepDetail(CoreJobStatusResponse core) {
+	public static String midRunItemStatus(CoreJobStatusResponse core) {
+		if (anyCriticalFailed(core)) {
+			return DB_FAILED;
+		}
+		if (criticalSucceeded(core) && anyBestEffortFailed(core)) {
+			return DB_COMPLETED_WITH_ERRORS;
+		}
+		if (criticalSucceeded(core)) {
+			return DB_COMPLETED;
+		}
+		return DB_RUNNING;
+	}
+
+	public static String midRunItemError(CoreJobStatusResponse core) {
+		String itemStatus = midRunItemStatus(core);
+		if (DB_FAILED.equals(itemStatus) || DB_COMPLETED_WITH_ERRORS.equals(itemStatus)) {
+			return failedStepDetails(core);
+		}
+		if (DB_RUNNING.equals(itemStatus)) {
+			return currentStepProgress(core);
+		}
+		return null;
+	}
+
+	public static Optional<String> resolvedTenantName(CoreJobStatusResponse core) {
+		if (core == null || !criticalSucceeded(core)) {
+			return Optional.empty();
+		}
+		String tenantName = core.tenantName();
+		if (tenantName == null || tenantName.isBlank()) {
+			return Optional.empty();
+		}
+		return Optional.of(tenantName);
+	}
+
+	public static String currentStepProgress(CoreJobStatusResponse core) {
 		if (core == null || core.steps() == null) {
 			return null;
 		}
 		for (CoreJobStepResponse step : core.steps()) {
-			if (step != null && STEP_FAILED.equals(step.status())) {
-				if (step.detail() != null && !step.detail().isBlank()) {
-					return step.detail();
-				}
-				return step.name();
+			if (step != null && "running".equals(step.status()) && step.name() != null) {
+				return step.name() + " running";
+			}
+		}
+		for (CoreJobStepResponse step : core.steps()) {
+			if (step != null && "pending".equals(step.status()) && step.name() != null) {
+				return step.name() + " pending";
 			}
 		}
 		return null;
+	}
+
+	public static String firstFailedStepDetail(CoreJobStatusResponse core) {
+		String all = failedStepDetails(core);
+		if (all == null) {
+			return null;
+		}
+		int sep = all.indexOf("; ");
+		return sep < 0 ? all : all.substring(0, sep);
+	}
+
+	public static String failedStepDetails(CoreJobStatusResponse core) {
+		if (core == null || core.steps() == null) {
+			return null;
+		}
+		List<String> parts = new ArrayList<>();
+		for (CoreJobStepResponse step : core.steps()) {
+			if (step == null || !STEP_FAILED.equals(step.status())) {
+				continue;
+			}
+			if (step.detail() != null && !step.detail().isBlank()) {
+				parts.add(step.detail());
+			} else if (step.name() != null && !step.name().isBlank()) {
+				parts.add(step.name());
+			}
+		}
+		if (parts.isEmpty()) {
+			return null;
+		}
+		return String.join("; ", parts);
+	}
+
+	private static boolean anyCriticalFailed(CoreJobStatusResponse core) {
+		List<CoreJobStepResponse> steps = core.steps();
+		if (steps == null) {
+			return false;
+		}
+		for (CoreJobStepResponse step : steps) {
+			if (step != null
+					&& CRITICAL_STEPS.contains(step.name())
+					&& STEP_FAILED.equals(step.status())) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	private static boolean allEightStepsFinished(CoreJobStatusResponse core) {
+		for (String name : CRITICAL_STEPS) {
+			if (!stepFinished(core, name)) {
+				return false;
+			}
+		}
+		for (String name : BEST_EFFORT_STEPS) {
+			if (!stepFinished(core, name)) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	private static boolean stepFinished(CoreJobStatusResponse core, String name) {
+		return stepHasStatus(core, name, STEP_SUCCEEDED) || stepHasStatus(core, name, STEP_FAILED);
 	}
 
 	private static boolean criticalSucceeded(CoreJobStatusResponse core) {

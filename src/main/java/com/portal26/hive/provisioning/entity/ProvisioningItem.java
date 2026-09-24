@@ -57,6 +57,10 @@ public class ProvisioningItem {
 		return item;
 	}
 
+	public UUID getJobId() {
+		return jobId;
+	}
+
 	public UUID getCustomerId() {
 		return customerId;
 	}

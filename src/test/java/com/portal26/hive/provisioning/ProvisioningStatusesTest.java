@@ -34,6 +34,50 @@ class ProvisioningStatusesTest {
 	}
 
 	@Test
+	void doesNotMapUntilAllEightStepsFinished() {
+		List<CoreJobStepResponse> steps = new ArrayList<>(List.of(criticalSucceeded()));
+		steps.add(step("TURBO_AND_MDM", ProvisioningStatuses.STEP_FAILED, "TURBO_AND_MDM failed"));
+		steps.add(step("LD_SEGMENTS", ProvisioningStatuses.STEP_SUCCEEDED, null));
+		steps.add(step("LD_UI_FLAGS", ProvisioningStatuses.STEP_SUCCEEDED, null));
+		steps.add(step("LD_BACKEND_FLAGS", ProvisioningStatuses.STEP_SUCCEEDED, null));
+		steps.add(step("SAML_REGISTRATION", "pending", null));
+		CoreJobStatusResponse core =
+				job(ProvisioningStatuses.CORE_COMPLETE, "acme.portal26.ai", steps);
+
+		assertThat(ProvisioningStatuses.resolveHiveStatus(core))
+				.contains(ProvisioningStatuses.DB_RUNNING);
+	}
+
+	@Test
+	void inProgressWithBestEffortFailStaysRunningUntilStep8() {
+		List<CoreJobStepResponse> steps = new ArrayList<>(List.of(criticalSucceeded()));
+		steps.add(step("TURBO_AND_MDM", ProvisioningStatuses.STEP_FAILED, "TURBO_AND_MDM failed"));
+		steps.add(step("SAML_REGISTRATION", "pending", null));
+		CoreJobStatusResponse core =
+				job(ProvisioningStatuses.CORE_IN_PROGRESS, "acme.portal26.ai", steps);
+
+		assertThat(ProvisioningStatuses.resolveHiveStatus(core))
+				.contains(ProvisioningStatuses.DB_RUNNING);
+	}
+
+	@Test
+	void coreCompleteWithBestEffortFailedMapsToCompletedWithErrors() {
+		List<CoreJobStepResponse> steps = new ArrayList<>(List.of(criticalSucceeded()));
+		steps.add(step("TURBO_AND_MDM", ProvisioningStatuses.STEP_FAILED, "TURBO_AND_MDM failed"));
+		steps.add(step("LD_SEGMENTS", ProvisioningStatuses.STEP_SUCCEEDED, null));
+		steps.add(step("LD_UI_FLAGS", ProvisioningStatuses.STEP_SUCCEEDED, null));
+		steps.add(step("LD_BACKEND_FLAGS", ProvisioningStatuses.STEP_SUCCEEDED, null));
+		steps.add(step("SAML_REGISTRATION", ProvisioningStatuses.STEP_SUCCEEDED, "MANUAL STEP"));
+		CoreJobStatusResponse core =
+				job(ProvisioningStatuses.CORE_COMPLETE, "acme.portal26.ai", steps);
+
+		assertThat(ProvisioningStatuses.resolveHiveStatus(core))
+				.contains(ProvisioningStatuses.DB_COMPLETED_WITH_ERRORS);
+		assertThat(ProvisioningStatuses.toCustomerStatus(ProvisioningStatuses.DB_COMPLETED_WITH_ERRORS))
+				.isEqualTo(ProvisioningStatuses.DB_COMPLETED);
+	}
+
+	@Test
 	void criticalOkAndBestEffortFailedMapsToCompletedWithErrors() {
 		List<CoreJobStepResponse> steps = new ArrayList<>(List.of(criticalSucceeded()));
 		steps.add(step("TURBO_AND_MDM", ProvisioningStatuses.STEP_SUCCEEDED, null));
@@ -42,12 +86,25 @@ class ProvisioningStatusesTest {
 		steps.add(step("LD_BACKEND_FLAGS", ProvisioningStatuses.STEP_SUCCEEDED, null));
 		steps.add(step("SAML_REGISTRATION", ProvisioningStatuses.STEP_FAILED, "SSO metadata rejected"));
 		CoreJobStatusResponse core =
-				job(ProvisioningStatuses.CORE_FAILED, "acme.portal26.ai", steps);
+				job(ProvisioningStatuses.CORE_COMPLETE, "acme.portal26.ai", steps);
 
 		assertThat(ProvisioningStatuses.resolveHiveStatus(core))
 				.contains(ProvisioningStatuses.DB_COMPLETED_WITH_ERRORS);
 		assertThat(ProvisioningStatuses.firstFailedStepDetail(core)).isEqualTo("SSO metadata rejected");
 		assertThat(ProvisioningStatuses.isTerminal(ProvisioningStatuses.DB_COMPLETED_WITH_ERRORS)).isTrue();
+	}
+
+	@Test
+	void coreCompleteWithAllBestEffortFailedMapsToCompletedWithErrors() {
+		List<CoreJobStepResponse> steps = new ArrayList<>(List.of(criticalSucceeded()));
+		for (String name : ProvisioningStatuses.BEST_EFFORT_STEPS) {
+			steps.add(step(name, ProvisioningStatuses.STEP_FAILED, name + " failed"));
+		}
+		CoreJobStatusResponse core =
+				job(ProvisioningStatuses.CORE_COMPLETE, "acme.portal26.ai", steps);
+
+		assertThat(ProvisioningStatuses.resolveHiveStatus(core))
+				.contains(ProvisioningStatuses.DB_COMPLETED_WITH_ERRORS);
 	}
 
 	@Test
@@ -76,6 +133,76 @@ class ProvisioningStatusesTest {
 				.isEqualTo(ProvisioningStatuses.DB_COMPLETED);
 		assertThat(ProvisioningStatuses.toCustomerStatus(ProvisioningStatuses.DB_FAILED))
 				.isEqualTo(ProvisioningStatuses.DB_FAILED);
+	}
+
+	@Test
+	void currentStepProgressPrefersRunningThenPending() {
+		List<CoreJobStepResponse> steps = new ArrayList<>(List.of(criticalSucceeded()));
+		steps.add(step("TURBO_AND_MDM", "running", null));
+		steps.add(step("SAML_REGISTRATION", "pending", null));
+		assertThat(ProvisioningStatuses.currentStepProgress(
+						job(ProvisioningStatuses.CORE_IN_PROGRESS, null, steps)))
+				.isEqualTo("TURBO_AND_MDM running");
+
+		List<CoreJobStepResponse> pendingOnly = new ArrayList<>(List.of(criticalSucceeded()));
+		pendingOnly.add(step("TURBO_AND_MDM", "pending", null));
+		assertThat(ProvisioningStatuses.currentStepProgress(
+						job(ProvisioningStatuses.CORE_IN_PROGRESS, null, pendingOnly)))
+				.isEqualTo("TURBO_AND_MDM pending");
+	}
+
+	@Test
+	void midRunItemStatusCompletesAfterThreeCriticalSteps() {
+		List<CoreJobStepResponse> afterThree = new ArrayList<>(List.of(criticalSucceeded()));
+		afterThree.add(step("TURBO_AND_MDM", "running", null));
+		assertThat(ProvisioningStatuses.midRunItemStatus(
+						job(ProvisioningStatuses.CORE_IN_PROGRESS, "acme.portal26.ai", afterThree)))
+				.isEqualTo(ProvisioningStatuses.DB_COMPLETED);
+		assertThat(ProvisioningStatuses.midRunItemError(
+						job(ProvisioningStatuses.CORE_IN_PROGRESS, "acme.portal26.ai", afterThree)))
+				.isNull();
+
+		afterThree.add(step("LD_SEGMENTS", ProvisioningStatuses.STEP_FAILED, "LD_SEGMENTS failed"));
+		assertThat(ProvisioningStatuses.midRunItemStatus(
+						job(ProvisioningStatuses.CORE_IN_PROGRESS, "acme.portal26.ai", afterThree)))
+				.isEqualTo(ProvisioningStatuses.DB_COMPLETED_WITH_ERRORS);
+		assertThat(ProvisioningStatuses.midRunItemError(
+						job(ProvisioningStatuses.CORE_IN_PROGRESS, "acme.portal26.ai", afterThree)))
+				.isEqualTo("LD_SEGMENTS failed");
+	}
+
+	@Test
+	void failedStepDetailsJoinsEveryFailedBestEffortStep() {
+		List<CoreJobStepResponse> steps = new ArrayList<>(List.of(criticalSucceeded()));
+		steps.add(step("TURBO_AND_MDM", ProvisioningStatuses.STEP_FAILED, "TURBO_AND_MDM failed"));
+		steps.add(step("LD_SEGMENTS", ProvisioningStatuses.STEP_FAILED, "LD_SEGMENTS failed"));
+		steps.add(step("LD_UI_FLAGS", ProvisioningStatuses.STEP_SUCCEEDED, null));
+		steps.add(step("LD_BACKEND_FLAGS", ProvisioningStatuses.STEP_FAILED, "LD_BACKEND_FLAGS failed"));
+		steps.add(step("SAML_REGISTRATION", ProvisioningStatuses.STEP_SUCCEEDED, "MANUAL STEP"));
+		CoreJobStatusResponse core =
+				job(ProvisioningStatuses.CORE_COMPLETE, "acme.portal26.ai", steps);
+
+		assertThat(ProvisioningStatuses.resolveHiveStatus(core))
+				.contains(ProvisioningStatuses.DB_COMPLETED_WITH_ERRORS);
+		assertThat(ProvisioningStatuses.failedStepDetails(core))
+				.isEqualTo("TURBO_AND_MDM failed; LD_SEGMENTS failed; LD_BACKEND_FLAGS failed");
+	}
+
+	@Test
+	void resolvedTenantNameRequiresAllThreeCriticalSteps() {
+		assertThat(ProvisioningStatuses.resolvedTenantName(
+						job(ProvisioningStatuses.CORE_IN_PROGRESS, "acme.portal26.ai", List.of(
+								step("CREATE_TENANT", ProvisioningStatuses.STEP_SUCCEEDED, null),
+								step("AWAIT_PROVISIONING", "running", null)))))
+				.isEmpty();
+		List<CoreJobStepResponse> afterThree = new ArrayList<>(List.of(criticalSucceeded()));
+		afterThree.add(step("TURBO_AND_MDM", "running", null));
+		assertThat(ProvisioningStatuses.resolvedTenantName(
+						job(ProvisioningStatuses.CORE_IN_PROGRESS, "acme.portal26.ai", afterThree)))
+				.contains("acme.portal26.ai");
+		assertThat(ProvisioningStatuses.resolvedTenantName(
+						job(ProvisioningStatuses.CORE_IN_PROGRESS, null, afterThree)))
+				.isEmpty();
 	}
 
 	@Test
