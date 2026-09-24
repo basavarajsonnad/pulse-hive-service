@@ -1,0 +1,92 @@
+name: deploy-prod
+
+# Deploys the image ci.yml already pushed to the production ECR account. Chained
+# automatically from deploy-stg.yml once staging's rollout succeeds, or dispatched manually
+# for a standalone redeploy. Gated behind the `production` GitHub environment — add required
+# reviewers there (repo Settings -> Environments -> production) if you want a manual
+# approval gate; without reviewers configured, this deploys immediately on success.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'image tag suffix to deploy (the "prod-<version>" tag in ECR)'
+        required: true
+        type: string
+  workflow_call:
+    inputs:
+      version:
+        description: 'image tag suffix to deploy (the "prod-<version>" tag in ECR)'
+        required: true
+        type: string
+
+env:
+  AWS_REGION: us-east-2
+  ECR_REGISTRY: 309325302342.dkr.ecr.us-east-2.amazonaws.com
+  # Confirmed by Portal26: the ECR repository name is pulse-hive-service.
+  ECR_REPOSITORY: pulse-hive-service
+  # Confirmed by Portal26: the prod EKS cluster is prod-eks-v36-01 (a different pulse-deploy
+  # workflow references prod-test-eks-01, but that's a separate, unrelated cluster).
+  EKS_CLUSTER: prod-eks-v36-01
+
+concurrency:
+  # Hardcoded for the same reason as deploy-stg.yml — see the comment there.
+  group: deploy-prod
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    # Confirmed by Portal26: this repo lives at titaniam/pulse-hive-service, inside Portal26's
+    # own GitHub org.
+    if: github.repository == 'titaniam/pulse-hive-service'
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.PROD_AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.PROD_AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Install kustomize
+        run: |
+          curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" | bash
+          sudo mv kustomize /usr/local/bin/
+
+      - name: Deploy to production
+        run: |
+          aws eks update-kubeconfig --name "$EKS_CLUSTER" --region "$AWS_REGION"
+          cd deployment/prod/kustom
+          kustomize edit set image PLACEHOLDER_IMAGE="$ECR_REGISTRY/$ECR_REPOSITORY:prod-${{ inputs.version }}"
+          kustomize build . | kubectl apply -f -
+
+          echo "Waiting for deployment rollout to complete..."
+          kubectl rollout status deployment/pulse-hive-service --timeout=30m
+
+      - name: Verify deployment
+        if: success()
+        run: |
+          kubectl get deployment pulse-hive-service
+          kubectl get pods -l app=pulse-hive-service
+
+      - name: Slack - Failed
+        uses: voxmedia/github-action-slack-notify-build@v1.6.0
+        if: failure()
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_NOTIFICATIONS_BOT_TOKEN }}
+        with:
+          channel_id: C0B3RS2S1R7
+          status: "PRODUCTION Deployment FAILED - Pulse Hive Service"
+          color: danger
+
+      - name: Slack - Success
+        uses: voxmedia/github-action-slack-notify-build@v1.6.0
+        if: success()
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_NOTIFICATIONS_BOT_TOKEN }}
+        with:
+          channel_id: C0B3RS2S1R7
+          status: "PRODUCTION Deployment Success - Pulse Hive Service v${{ inputs.version }}"
+          color: good

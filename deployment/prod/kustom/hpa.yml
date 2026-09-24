@@ -1,0 +1,21 @@
+# prod-only HPA, matching platform convention (autoscaling/v2, CPU 50%, min=max=2 — this
+# effectively pins the replica count at 2 today but keeps the HPA object present so it's a
+# one-line change to raise maxReplicas later).
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: pulse-hive-service
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: pulse-hive-service
+  minReplicas: 2
+  maxReplicas: 2
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 50

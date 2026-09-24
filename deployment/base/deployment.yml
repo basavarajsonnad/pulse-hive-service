@@ -1,0 +1,90 @@
+# Base Deployment. Deploys into the kubeconfig's current namespace, uses a dedicated
+# ServiceAccount, `hive-service`, that Portal26 creates for this service (see README — do NOT
+# use the shared `basic-workload` SA other services use; it has account-wide Secrets Manager
+# read, and this service must only be able to read its own two secrets). This SA does not
+# exist yet — Portal26 must create it and confirm its IAM policy before your first deploy.
+# Replicas 2, RollingUpdate
+# maxUnavailable 0, non-root, port 8080, JSON logging, liveness + startup probes (no
+# readiness probe — this matches every other service on this platform).
+#
+# The NodePort Service and the Ingress/ALB routing are NOT defined here — Portal26
+# registers those in its own internal deploy repo, the same way it does for every other
+# service. The ALB path-prefix has been assigned as `/hive/`, NodePort 7668, in the
+# INTERNET-FACING ALB group (unlike partner-gateway, which is internal-only) — see README
+# "What Portal26 provides vs what you provide".
+#
+# Overlays (dev-test/stg/prod) patch: image, resources, replicas, SPRING_PROFILES_ACTIVE,
+# and (prod) an HPA.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pulse-hive-service
+  labels:
+    app: pulse-hive-service
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: pulse-hive-service
+  template:
+    metadata:
+      labels:
+        app: pulse-hive-service
+    spec:
+      serviceAccountName: hive-service
+      terminationGracePeriodSeconds: 70
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+      containers:
+        - name: pulse-hive-service
+          image: PLACEHOLDER_IMAGE
+          ports:
+            - name: http
+              containerPort: 8080
+          # Non-secret runtime config only. Anything sensitive (DB creds, API keys, tokens)
+          # must come from AWS Secrets Manager via the loader described in the README —
+          # never put a real secret value directly in this file or its overlays.
+          env:
+            # The active profile IS the environment (dev-test/stg/prod) — there is no
+            # separate "environment" var. Overlays replace this value by index.
+            - name: SPRING_PROFILES_ACTIVE
+              value: stg
+            # Datadog is OFF by default (the agent jar is a no-op unless -javaagent is added
+            # to JDK_JAVA_OPTIONS and DD_AGENT_HOST is set). Placeholders for opt-in tracing.
+            - name: DD_SERVICE
+              value: pulse-hive-service
+            - name: DD_ENV
+              value: stg
+            - name: JAVA_TOOL_OPTIONS
+              value: '-Xms512m -Xmx512m'
+          # ALB path-prefix is CONFIRMED by Portal26 as `/hive/` (NodePort 7668,
+          # internet-facing ALB group — see README "What Portal26 provides"). Your Spring
+          # context path must be `/hive` so the app actually serves what the ALB routes to it
+          # — update both probe paths together if this ever changes.
+          startupProbe:
+            httpGet:
+              path: /hive/actuator/health
+              port: 8080
+            failureThreshold: 30
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /hive/actuator/health
+              port: 8080
+            periodSeconds: 10
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 20m
+              memory: 512Mi
+            limits:
+              cpu: 500m
+              memory: 1500Mi

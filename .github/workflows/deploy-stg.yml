@@ -1,0 +1,93 @@
+name: deploy-stg
+
+# Deploys the image ci.yml already pushed to the staging ECR account. Triggered
+# automatically after a successful push build (ci.yml's call-stg-deploy job) or manually via
+# workflow_dispatch for a standalone redeploy. On success, chains into deploy-prod.yml.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'image tag suffix to deploy (the "stg-<version>" tag in ECR)'
+        required: true
+        type: string
+  workflow_call:
+    inputs:
+      version:
+        description: 'image tag suffix to deploy (the "stg-<version>" tag in ECR)'
+        required: true
+        type: string
+
+env:
+  AWS_REGION: us-east-2
+  ECR_REGISTRY: 427028034291.dkr.ecr.us-east-2.amazonaws.com
+  # Confirmed by Portal26: the ECR repository name is pulse-hive-service.
+  ECR_REPOSITORY: pulse-hive-service
+  EKS_CLUSTER: stg-eks-v36-01
+
+concurrency:
+  # A hardcoded name, not `${{ github.workflow }}` — this is deliberate, learned the hard way
+  # on Portal26's own services. When this workflow runs as a workflow_call (chained from
+  # ci.yml), `github.workflow` resolves to the CALLER's name ("ci"), which would collide with
+  # deploy-prod.yml's concurrency group and deadlock the chain (both nested under the same
+  # still-in-progress "ci" run, each waiting on the other). Keep this hardcoded.
+  group: deploy-stg
+
+jobs:
+  deploy:
+    # Confirmed by Portal26: this repo lives at titaniam/pulse-hive-service, inside Portal26's
+    # own GitHub org. This guard stops the workflow from running anywhere it's copied to (a
+    # fork, a template use).
+    if: github.repository == 'titaniam/pulse-hive-service'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.STG_AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.STG_AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Install kustomize
+        run: |
+          curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" | bash
+          sudo mv kustomize /usr/local/bin/
+
+      - name: Deploy to staging
+        run: |
+          aws eks update-kubeconfig --name "$EKS_CLUSTER" --region "$AWS_REGION"
+          cd deployment/stg/kustom
+          kustomize edit set image PLACEHOLDER_IMAGE="$ECR_REGISTRY/$ECR_REPOSITORY:stg-${{ inputs.version }}"
+          kustomize build . | kubectl apply -f -
+
+          echo "Waiting for deployment rollout to complete..."
+          kubectl rollout status deployment/pulse-hive-service --timeout=20m
+
+      - name: Slack - Failed
+        uses: voxmedia/github-action-slack-notify-build@v1.6.0
+        if: failure()
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_NOTIFICATIONS_BOT_TOKEN }}
+        with:
+          channel_id: C0B3RS2S1R7
+          status: "STAGING Deployment FAILED - Pulse Hive Service"
+          color: danger
+
+      - name: Slack - Success
+        uses: voxmedia/github-action-slack-notify-build@v1.6.0
+        if: success()
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_NOTIFICATIONS_BOT_TOKEN }}
+        with:
+          channel_id: C0B3RS2S1R7
+          status: "STAGING Deployment Success - Pulse Hive Service v${{ inputs.version }}"
+          color: good
+
+  call-prod-deploy:
+    needs: deploy
+    if: success()
+    uses: ./.github/workflows/deploy-prod.yml
+    secrets: inherit
+    with:
+      version: ${{ inputs.version }}

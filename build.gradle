@@ -43,10 +43,17 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-flyway'
 	implementation 'org.flywaydb:flyway-database-postgresql'
 	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:3.1.1'
-	implementation 'software.amazon.awssdk:cognitoidentityprovider:2.31.78'
-	implementation 'software.amazon.awssdk:secretsmanager:2.31.78'
+	// AWS SDK BOM keeps all awssdk module versions aligned — declare modules without versions.
+	implementation platform('software.amazon.awssdk:bom:2.31.78')
+	implementation 'software.amazon.awssdk:cognitoidentityprovider'
+	implementation 'software.amazon.awssdk:secretsmanager'
+	// Required by the DefaultCredentialsProvider (IRSA) path in AwsAppPropertyLoader — the
+	// web-identity token exchange is implemented in the sts module.
+	implementation 'software.amazon.awssdk:sts'
 	implementation 'org.json:json:20240303'
 	implementation 'com.titaniamlabs:engine-obf:0.0.5'
+	// JSON stdout logging via LogstashEncoder (docker-arm64/logback.xml).
+	implementation 'net.logstash.logback:logstash-logback-encoder:8.1'
 
 	compileOnly 'org.projectlombok:lombok'
 	annotationProcessor 'org.projectlombok:lombok'

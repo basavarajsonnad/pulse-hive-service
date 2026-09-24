@@ -16,6 +16,10 @@ spring:
 
 server:
   port: ${SERVER_PORT:8080}
+  servlet:
+    # ALB/NodePort route the /hive/ path-prefix to this pod; probes hit /hive/actuator/health.
+    # Overridable for local dev (set SERVER_CONTEXT_PATH=/ to drop the prefix locally).
+    context-path: ${SERVER_CONTEXT_PATH:/hive}
 
 management:
   endpoints:
